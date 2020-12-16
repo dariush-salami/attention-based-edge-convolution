@@ -1,6 +1,6 @@
 from typing import Callable, Union, Optional
 from torch_geometric.typing import OptTensor, PairTensor, PairOptTensor, Adj
-
+import numpy as np
 import torch
 from torch import Tensor
 from torch_geometric.nn.conv import MessagePassing
@@ -66,7 +66,7 @@ class EdgeConv(MessagePassing):
         return '{}(nn={})'.format(self.__class__.__name__, self.nn)
 
 
-class DynamicEdgeConv(MessagePassing):
+class TemporalDynamicEdgeConv(MessagePassing):
     r"""The dynamic edge convolutional operator from the `"Dynamic Graph CNN
     for Learning on Point Clouds" <https://arxiv.org/abs/1801.07829>`_ paper
     (see :class:`torch_geometric.nn.conv.EdgeConv`), where the graph is
@@ -87,7 +87,7 @@ class DynamicEdgeConv(MessagePassing):
     """
     def __init__(self, nn: Callable, k: int, aggr: str = 'max',
                  num_workers: int = 1, **kwargs):
-        super(DynamicEdgeConv,
+        super(TemporalDynamicEdgeConv,
               self).__init__(aggr=aggr, flow='target_to_source', **kwargs)
 
         if knn is None:
@@ -103,7 +103,9 @@ class DynamicEdgeConv(MessagePassing):
 
     def forward(
             self, x: Union[Tensor, PairTensor],
-            batch: Union[OptTensor, Optional[PairTensor]] = None) -> Tensor:
+            sequence_number: Union[Tensor, PairTensor],
+            batch: Union[OptTensor, Optional[PairTensor]] = None,) -> Tensor:
+        num_frames = len(np.unique(sequence_number.round().numpy()))
         """"""
         if isinstance(x, Tensor):
             x: PairTensor = (x, x)
@@ -112,7 +114,8 @@ class DynamicEdgeConv(MessagePassing):
 
         b: PairOptTensor = (None, None)
         if isinstance(batch, Tensor):
-            b = (batch, batch)
+            b = ((batch * num_frames + sequence_number).long(),
+                 (batch * num_frames + sequence_number - 1).long())
         elif isinstance(batch, tuple):
             assert batch is not None
             b = (batch[0], batch[1])
