@@ -105,7 +105,7 @@ class TemporalDynamicEdgeConv(MessagePassing):
             self, x: Union[Tensor, PairTensor],
             sequence_number: Union[Tensor, PairTensor],
             batch: Union[OptTensor, Optional[PairTensor]] = None,) -> Tensor:
-        num_frames = len(np.unique(sequence_number.round().numpy()))
+        num_frames = len(np.unique(sequence_number.cpu().round().numpy()))
         """"""
         if isinstance(x, Tensor):
             x: PairTensor = (x, x)

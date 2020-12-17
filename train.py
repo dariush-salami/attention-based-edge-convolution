@@ -8,7 +8,6 @@ from torch_geometric.data import DataLoader
 import torch.nn.functional as F
 import argparse
 import sys
-torch.cuda.set_device(2)
 BASE_DIR = osp.dirname(osp.abspath(__file__))
 ROOT_DIR = BASE_DIR
 sys.path.append(BASE_DIR)
@@ -21,10 +20,12 @@ parser.add_argument('--model', type=str, default='modified_edgecnn',
 parser.add_argument('--log_dir', default='stgcnn', help='Log dir [default: stgcnn]')
 parser.add_argument('--k', default=5, help='Number of nearest points [default: 5]')
 parser.add_argument('--t', default=2, help='Number of future frames to look at [default: 5]')
+parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
 FLAGS = parser.parse_args()
 LOG_DIR = FLAGS.log_dir
 K = FLAGS.k
 T = FLAGS.t
+GPU_ID = FLAGS.gpu_id
 MODEL = importlib.import_module(FLAGS.model)
 
 NUM_CLASSES = 21
@@ -37,7 +38,7 @@ if not osp.exists(LOG_DIR):
 
 model_path = osp.join(LOG_DIR, 'model.pth')
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:{}'.format(GPU_ID) if torch.cuda.is_available() else 'cpu')
 path = osp.join(osp.dirname(osp.realpath(__file__)), 'data/pantomime')
 transform = TemporalTransformer(k=K, t=T)
 train_dataset = PantomimeDataset(path, True, pre_transform=transform)
