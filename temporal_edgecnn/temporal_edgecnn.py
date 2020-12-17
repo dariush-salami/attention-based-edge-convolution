@@ -118,8 +118,7 @@ class TemporalDynamicEdgeConv(MessagePassing):
             # b = (batch, batch)
             b_list = [(batch * num_frames + sequence_number - 1).long(),
                       (batch * num_frames + sequence_number - 2).long()]
-            b_list[1] = torch.where(sequence_number == 1, b_list[0], b_list[1])
-            b_list[1] = torch.where(sequence_number == num_frames, b_list[0], b_list[1])
+            b_list[1] = torch.where((sequence_number == 1) | (sequence_number == num_frames), b_list[0], b_list[1])
             b = (b_list[0], b_list[1])
         elif isinstance(batch, tuple):
             assert batch is not None
