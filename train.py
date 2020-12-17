@@ -36,7 +36,7 @@ if not osp.exists(LOG_DIR):
 
 model_path = osp.join(LOG_DIR, 'model.pth')
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 path = osp.join(osp.dirname(osp.realpath(__file__)), 'data/pantomime')
 transform = TemporalTransformer(k=K, t=T)
 train_dataset = PantomimeDataset(path, True, pre_transform=transform)

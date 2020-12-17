@@ -114,6 +114,7 @@ class TemporalDynamicEdgeConv(MessagePassing):
 
         b: PairOptTensor = (None, None)
         if isinstance(batch, Tensor):
+            # b = (batch, batch)
             b = ((batch * num_frames + sequence_number).long(),
                  (batch * num_frames + sequence_number - 1).long())
         elif isinstance(batch, tuple):
