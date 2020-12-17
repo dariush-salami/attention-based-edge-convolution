@@ -5,7 +5,6 @@ import torch
 from torch import Tensor
 from torch_geometric.nn.conv import MessagePassing
 
-
 try:
     from torch_cluster import knn
 except ImportError:
@@ -44,6 +43,7 @@ class EdgeConv(MessagePassing):
         **kwargs (optional): Additional arguments of
             :class:`torch_geometric.nn.conv.MessagePassing`.
     """
+
     def __init__(self, nn: Callable, aggr: str = 'max', **kwargs):
         super(EdgeConv, self).__init__(aggr=aggr, **kwargs)
         self.nn = nn
@@ -85,6 +85,7 @@ class TemporalDynamicEdgeConv(MessagePassing):
         **kwargs (optional): Additional arguments of
             :class:`torch_geometric.nn.conv.MessagePassing`.
     """
+
     def __init__(self, nn: Callable, k: int, aggr: str = 'max',
                  num_workers: int = 1, **kwargs):
         super(TemporalDynamicEdgeConv,
@@ -104,7 +105,7 @@ class TemporalDynamicEdgeConv(MessagePassing):
     def forward(
             self, x: Union[Tensor, PairTensor],
             sequence_number: Union[Tensor, PairTensor],
-            batch: Union[OptTensor, Optional[PairTensor]] = None,) -> Tensor:
+            batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
         num_frames = len(np.unique(sequence_number.cpu().round().numpy()))
         """"""
         if isinstance(x, Tensor):
@@ -115,14 +116,11 @@ class TemporalDynamicEdgeConv(MessagePassing):
         b: PairOptTensor = (None, None)
         if isinstance(batch, Tensor):
             # b = (batch, batch)
-            b = ((batch * num_frames + sequence_number - 1).long(),
-                 (batch * num_frames + sequence_number - 2).long())
-            for index, (current_batch, current_frame) in enumerate(zip(batch, sequence_number)):
-                if current_frame == num_frames:
-                    b[1][index] = (current_batch * num_frames + current_frame - 1).long()
-                elif current_frame == 1:
-                    b[1][index] = (current_batch * num_frames + current_frame - 1).long()
-
+            b_list = [(batch * num_frames + sequence_number - 1).long(),
+                      (batch * num_frames + sequence_number - 2).long()]
+            b_list[1] = torch.where(sequence_number == 1, b_list[0], b_list[1])
+            b_list[1] = torch.where(sequence_number == num_frames, b_list[0], b_list[1])
+            b = (b_list[0], b_list[1])
         elif isinstance(batch, tuple):
             assert batch is not None
             b = (batch[0], batch[1])
