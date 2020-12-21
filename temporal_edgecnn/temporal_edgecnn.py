@@ -8,7 +8,6 @@ from torch_geometric.nn.conv import MessagePassing
 from torch_scatter import scatter
 from torch_geometric.utils import softmax
 
-
 try:
     from torch_cluster import knn
 except ImportError:
@@ -16,12 +15,15 @@ except ImportError:
 
 
 def scatted_concat(source, index):
+    # TODO: There should be an optimized way to do this
     unique_indices, _ = torch.sort(torch.unique(index), dim=0)
     result_shape = list([unique_indices[-1].item() + 1]) + list(source.size())
     result_shape[1] = int(result_shape[1] / result_shape[0])
     result = torch.empty(result_shape)
     for u_index in unique_indices:
         result[u_index] = source[(index == u_index).nonzero().reshape(-1)]
+    del source
+    torch.cuda.empty_cache()
     return result.to(source.get_device())
 
 
