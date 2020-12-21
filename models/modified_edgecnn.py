@@ -21,8 +21,6 @@ class Net(torch.nn.Module):
                                                           64, 4, k, aggr)
         self.conv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
                                                           128, 8, k, aggr)
-        self.conv3 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 128, 256]),
-                                                          256, 16, k, aggr)
         self.lin1 = MLP([256 + 128 + 64, 1024])
 
         self.mlp = Seq(
@@ -33,8 +31,7 @@ class Net(torch.nn.Module):
         sequence_numbers, pos, batch = data.x[:, 0].float(), data.pos.float(), data.batch
         x1 = self.conv1(pos, sequence_numbers, batch)
         x2 = self.conv2(x1, sequence_numbers, batch)
-        x3 = self.conv3(x2, sequence_numbers, batch)
-        out = self.lin1(torch.cat([x1, x2, x3], dim=1))
+        out = self.lin1(torch.cat([x1, x2], dim=1))
         out = global_max_pool(out, batch)
         out = self.mlp(out)
         return F.log_softmax(out, dim=1)
