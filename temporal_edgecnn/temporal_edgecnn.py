@@ -4,6 +4,10 @@ import numpy as np
 import torch
 from torch import Tensor
 from torch_geometric.nn.conv import MessagePassing
+from torch_geometric.nn.glob import GlobalAttention
+from torch_scatter import scatter
+from torch_geometric.utils import softmax
+
 
 try:
     from torch_cluster import knn
@@ -67,32 +71,13 @@ class EdgeConv(MessagePassing):
 
 
 class TemporalDynamicEdgeConv(MessagePassing):
-    r"""The dynamic edge convolutional operator from the `"Dynamic Graph CNN
-    for Learning on Point Clouds" <https://arxiv.org/abs/1801.07829>`_ paper
-    (see :class:`torch_geometric.nn.conv.EdgeConv`), where the graph is
-    dynamically constructed using nearest neighbors in the feature space.
-    Args:
-        nn (torch.nn.Module): A neural network :math:`h_{\mathbf{\Theta}}` that
-            maps pair-wise concatenated node features :obj:`x` of shape
-            `:obj:`[-1, 2 * in_channels]` to shape :obj:`[-1, out_channels]`,
-            *e.g.* defined by :class:`torch.nn.Sequential`.
-        k (int): Number of nearest neighbors.
-        aggr (string): The aggregation operator to use (:obj:`"add"`,
-            :obj:`"mean"`, :obj:`"max"`). (default: :obj:`"max"`)
-        num_workers (int): Number of workers to use for k-NN computation.
-            Has no effect in case :obj:`batch` is not :obj:`None`, or the input
-            lies on the GPU. (default: :obj:`1`)
-        **kwargs (optional): Additional arguments of
-            :class:`torch_geometric.nn.conv.MessagePassing`.
-    """
-
     def __init__(self, nn: Callable, k: int, aggr: str = 'max',
                  num_workers: int = 1, **kwargs):
         super(TemporalDynamicEdgeConv,
               self).__init__(aggr=aggr, flow='target_to_source', **kwargs)
 
         if knn is None:
-            raise ImportError('`DynamicEdgeConv` requires `torch-cluster`.')
+            raise ImportError('`TemporalDynamicEdgeConv` requires `torch-cluster`.')
 
         self.nn = nn
         self.k = k
@@ -111,7 +96,7 @@ class TemporalDynamicEdgeConv(MessagePassing):
         if isinstance(x, Tensor):
             x: PairTensor = (x, x)
         assert x[0].dim() == 2, \
-            'Static graphs not supported in `DynamicEdgeConv`.'
+            'Static graphs not supported in `TemporalDynamicEdgeConv`.'
 
         b: PairOptTensor = (None, None)
         if isinstance(batch, Tensor):
@@ -132,6 +117,71 @@ class TemporalDynamicEdgeConv(MessagePassing):
 
     def message(self, x_i: Tensor, x_j: Tensor) -> Tensor:
         return self.nn(torch.cat([x_i, x_j - x_i], dim=-1))
+
+    def __repr__(self):
+        return '{}(nn={}, k={})'.format(self.__class__.__name__, self.nn,
+                                        self.k)
+
+
+class TemporalAttentionDynamicEdgeConv(MessagePassing):
+    def __init__(self, nn: Callable, gate_nn: Callable, k: int, aggr: str = 'max',
+                 num_workers: int = 1, **kwargs):
+        super(TemporalAttentionDynamicEdgeConv,
+              self).__init__(aggr=aggr, flow='target_to_source', **kwargs)
+
+        if knn is None:
+            raise ImportError('`TemporalAttentionDynamicEdgeConv` requires `torch-cluster`.')
+
+        self.nn = nn
+        self.gate_nn = gate_nn
+        self.k = k
+        self.num_workers = num_workers
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        reset(self.gate_nn)
+        reset(self.nn)
+
+    def forward(
+            self, x: Union[Tensor, PairTensor],
+            sequence_number: Union[Tensor, PairTensor],
+            batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
+        num_frames = len(np.unique(sequence_number.cpu().round().numpy()))
+        """"""
+        if isinstance(x, Tensor):
+            x: PairTensor = (x, x)
+        assert x[0].dim() == 2, \
+            'Static graphs not supported in `TemporalAttentionDynamicEdgeConv`.'
+
+        b: PairOptTensor = (None, None)
+        if isinstance(batch, Tensor):
+            # b = (batch, batch)
+            b_list = [(batch * num_frames + sequence_number - 1).long(),
+                      (batch * num_frames + sequence_number - 2).long()]
+            b_list[1] = torch.where((sequence_number == 1) | (sequence_number == num_frames), b_list[0], b_list[1])
+            b = (b_list[0], b_list[1])
+        elif isinstance(batch, tuple):
+            assert batch is not None
+            b = (batch[0], batch[1])
+
+        edge_index = knn(x[0], x[1], self.k, b[0], b[1],
+                         num_workers=self.num_workers)
+
+        # propagate_type: (x: PairTensor)
+        return self.propagate(edge_index, x=x, size=None, batch=batch)
+
+    def message(self, x_i: Tensor, x_j: Tensor) -> Tensor:
+        return self.nn(torch.cat([x_i, x_j - x_i], dim=-1))
+
+    def aggregate(self, inputs: Tensor, index: Tensor,
+                  batch: Tensor,
+                  ptr: Optional[Tensor] = None,
+                  dim_size: Optional[int] = None) -> Tensor:
+        gate = self.gate_nn(inputs).view(-1, 1)
+        gate = softmax(gate, index)
+        # Apply attention mechanism
+        return scatter(gate * inputs, index, dim=self.node_dim, dim_size=dim_size,
+                       reduce=self.aggr)
 
     def __repr__(self):
         return '{}(nn={}, k={})'.format(self.__class__.__name__, self.nn,
