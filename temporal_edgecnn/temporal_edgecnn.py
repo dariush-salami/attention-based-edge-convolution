@@ -16,6 +16,7 @@ except ImportError:
 
 def scatted_concat(source, index):
     # TODO: There should be an optimized way to do this
+    device = source.get_device()
     unique_indices, _ = torch.sort(torch.unique(index), dim=0)
     result_shape = list([unique_indices[-1].item() + 1]) + list(source.size())
     result_shape[1] = int(result_shape[1] / result_shape[0])
@@ -24,7 +25,7 @@ def scatted_concat(source, index):
         result[u_index] = source[(index == u_index).nonzero().reshape(-1)]
     del source
     torch.cuda.empty_cache()
-    return result.to(source.get_device())
+    return result.to(device)
 
 
 def reset(nn):
