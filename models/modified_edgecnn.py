@@ -14,7 +14,7 @@ def MLP(channels, batch_norm=True):
 
 
 class Net(torch.nn.Module):
-    def __init__(self, out_channels, k=10, aggr='max'):
+    def __init__(self, out_channels, k=5, aggr='max'):
         super().__init__()
 
         self.conv1 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
