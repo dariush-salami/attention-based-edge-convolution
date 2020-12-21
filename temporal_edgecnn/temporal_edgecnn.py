@@ -22,7 +22,7 @@ def scatted_concat(source, index):
     result = torch.empty(result_shape)
     for u_index in unique_indices:
         result[u_index] = source[(index == u_index).nonzero().reshape(-1)]
-    return result
+    return result.to(source.get_device())
 
 
 def reset(nn):
