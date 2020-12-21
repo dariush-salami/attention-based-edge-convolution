@@ -254,9 +254,10 @@ class TemporalSelfAttentionDynamicEdgeConv(MessagePassing):
                   batch: Tensor,
                   ptr: Optional[Tensor] = None,
                   dim_size: Optional[int] = None) -> Tensor:
+        original_shape = inputs.shape
         self_attention_input = scatted_concat(inputs, index)
         attn_output = self.multihead_attn(self_attention_input, self_attention_input, self_attention_input)
-        attn_output = attn_output.reshape(inputs.shape)
+        attn_output = attn_output.reshape(original_shape)
         # Apply attention mechanism
         return scatter(attn_output, index, dim=self.node_dim, dim_size=dim_size,
                        reduce=self.aggr)
