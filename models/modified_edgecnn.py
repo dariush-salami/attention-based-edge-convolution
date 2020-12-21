@@ -21,7 +21,7 @@ class Net(torch.nn.Module):
                                                           64, 4, k, aggr)
         self.conv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
                                                           128, 8, k, aggr)
-        self.lin1 = MLP([256 + 128 + 64, 1024])
+        self.lin1 = MLP([128 + 64, 1024])
 
         self.mlp = Seq(
             MLP([1024, 512]), Dropout(0.5), MLP([512, 256]), Dropout(0.5),
