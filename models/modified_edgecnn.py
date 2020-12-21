@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch.nn import Sequential as Seq, Linear as Lin, ReLU, BatchNorm1d as BN, Dropout
 from torch_geometric.nn import global_max_pool, BatchNorm
 from custom_graph_convolution import CGCNConv
-from temporal_edgecnn.temporal_edgecnn import TemporalAttentionDynamicEdgeConv
+from temporal_edgecnn.temporal_edgecnn import TemporalSelfAttentionDynamicEdgeConv
 
 
 def MLP(channels, batch_norm=True):
@@ -17,12 +17,12 @@ class Net(torch.nn.Module):
     def __init__(self, out_channels, k=10, aggr='max'):
         super().__init__()
 
-        self.conv1 = TemporalAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
-                                                      MLP([64, 1]), k, aggr)
-        self.conv2 = TemporalAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
-                                                      MLP([128, 1]), k, aggr)
-        self.conv3 = TemporalAttentionDynamicEdgeConv(MLP([2 * 128, 256]),
-                                                      MLP([256, 1]), k, aggr)
+        self.conv1 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
+                                                          64, 4, k, aggr)
+        self.conv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
+                                                          128, 8, k, aggr)
+        self.conv3 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 128, 256]),
+                                                          256, 16, k, aggr)
         self.lin1 = MLP([256 + 128 + 64, 1024])
 
         self.mlp = Seq(

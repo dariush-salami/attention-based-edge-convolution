@@ -1,20 +1,26 @@
-import os.path as osp
-
 import torch
-import torch.nn.functional as F
-from torch.nn import Sequential as Seq, Dropout, Linear as Lin
-from torch_geometric.datasets import ModelNet
-import torch_geometric.transforms as T
-from torch_geometric.data import DataLoader
-from torch_geometric.nn import DynamicEdgeConv, global_max_pool
+from torch_multi_head_attention import MultiHeadAttention
 
-path = osp.join(osp.dirname(osp.realpath(__file__)), '..', 'data/ModelNet10')
-pre_transform, transform = T.NormalizeScale(), T.SamplePoints(1024)
-train_dataset = ModelNet(path, '10', True, transform, pre_transform)
-test_dataset = ModelNet(path, '10', False, transform, pre_transform)
-print(train_dataset.shape)
-train_loader = DataLoader(
-    train_dataset, batch_size=32, shuffle=True, num_workers=6)
-test_loader = DataLoader(
-    test_dataset, batch_size=32, shuffle=False, num_workers=6)
 
+def scatted_concat(source, index):
+    unique_indices, _ = torch.sort(torch.unique(index), dim=0)
+    result_shape = list([unique_indices[-1].item() + 1]) + list(source.size())
+    result_shape[1] = int(result_shape[1] / result_shape[0])
+    result = torch.empty(result_shape)
+    for u_index in unique_indices:
+        result[u_index] = source[(index == u_index).nonzero().reshape(-1)]
+    return result
+
+
+example_input = torch.tensor([range(0, 20)], dtype=torch.float64).reshape(10, 2).float()
+index = torch.tensor([0, 0, 1, 1, 2, 2, 3, 3, 4, 4])
+print(scatted_concat(example_input, index))
+example_input = example_input.reshape(2, 2, 5)
+
+multihead_attn = MultiHeadAttention(5, 1)
+print(example_input.size())
+
+attn_output = multihead_attn(example_input, example_input, example_input)
+
+print(example_input)
+print(attn_output)
