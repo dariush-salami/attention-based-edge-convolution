@@ -21,7 +21,7 @@ parser.add_argument('--log_dir', default='stgcnn', help='Log dir [default: stgcn
 parser.add_argument('--k', default=5, help='Number of nearest points [default: 5]')
 parser.add_argument('--t', default=2, help='Number of future frames to look at [default: 5]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
-parser.add_argument('--batch_size', default=32, help='Batch size [default: 32]')
+parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
 FLAGS = parser.parse_args()
 LOG_DIR = FLAGS.log_dir
 K = FLAGS.k
