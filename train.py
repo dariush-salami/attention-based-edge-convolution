@@ -21,12 +21,14 @@ parser.add_argument('--log_dir', default='stgcnn', help='Log dir [default: stgcn
 parser.add_argument('--k', default=5, help='Number of nearest points [default: 5]')
 parser.add_argument('--t', default=2, help='Number of future frames to look at [default: 5]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
+parser.add_argument('--batch_size', default=32, help='Batch size [default: 32]')
 FLAGS = parser.parse_args()
 LOG_DIR = FLAGS.log_dir
 K = FLAGS.k
 T = FLAGS.t
 GPU_ID = FLAGS.gpu_id
 MODEL = importlib.import_module(FLAGS.model)
+BATCH_SIZE = FLAGS.batch_size
 
 NUM_CLASSES = 21
 
@@ -44,9 +46,9 @@ transform = TemporalTransformer(k=K, t=T)
 train_dataset = PantomimeDataset(path, True, pre_transform=transform)
 test_dataset = PantomimeDataset(path, False, pre_transform=transform)
 train_loader = DataLoader(
-    train_dataset, batch_size=32, shuffle=True, num_workers=6)
+    train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=6)
 test_loader = DataLoader(
-    test_dataset, batch_size=32, shuffle=False, num_workers=6)
+    test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=6)
 
 model = MODEL.Net(21).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
