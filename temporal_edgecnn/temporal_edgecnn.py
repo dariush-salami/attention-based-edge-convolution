@@ -8,6 +8,7 @@ from torch_geometric.nn.conv import MessagePassing
 from torch_scatter import scatter
 from torch_geometric.utils import softmax
 
+
 try:
     from torch_cluster import knn
 except ImportError:
