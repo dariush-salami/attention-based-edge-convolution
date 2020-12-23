@@ -64,8 +64,8 @@ def log_string(out_str):
 
 device = torch.device('cuda:{}'.format(GPU_ID) if torch.cuda.is_available() else 'cpu')
 path = osp.join(osp.dirname(osp.realpath(__file__)), 'data/pantomime')
-augmentation_transformer = AugmentationTransformer(False)
-train_dataset = PantomimeDataset(path, True, transform=augmentation_transformer)
+augmentation_transformer = AugmentationTransformer(False, BATCH_SIZE)
+train_dataset = PantomimeDataset(path, True)
 test_dataset = PantomimeDataset(path, False)
 train_loader = DataLoader(
     train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=6)
@@ -83,6 +83,7 @@ def train():
     total_loss = 0
     for data in train_loader:
         data = data.to(device)
+        data = augmentation_transformer(data)
         optimizer.zero_grad()
         out = model(data)
         loss = F.nll_loss(out, data.y.squeeze())
