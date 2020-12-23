@@ -1,3 +1,5 @@
 /.idea/
 /venv/
 /data/
+/logs/
+/analysis/.ipynb_checkpoints/
