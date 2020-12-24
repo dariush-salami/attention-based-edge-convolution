@@ -22,8 +22,8 @@ class AugmentationTransformer(object):
         jittered_data = provider.jitter_point_cloud(jittered_data)
         rotated_data[:, :, 0:3] = jittered_data
         data_after_augmentation = rotated_data
-        data_after_augmentation, shuffled_indices = provider.shuffle_points(rotated_data)
-        seq_number = seq_number[:, shuffled_indices]
+        # data_after_augmentation, shuffled_indices = provider.shuffle_points(rotated_data)
+        # seq_number = seq_number[:, shuffled_indices]
         data.pos = torch.from_numpy(data_after_augmentation.reshape(-1, 3)).to(data.pos.device)
         data.x = torch.from_numpy(
             np.insert(data_after_augmentation.reshape(-1, 3), 0, seq_number.reshape(-1), axis=1)
