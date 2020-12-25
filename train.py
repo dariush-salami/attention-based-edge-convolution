@@ -62,7 +62,7 @@ def log_string(out_str):
 
 
 device = torch.device('cuda:{}'.format(GPU_ID) if torch.cuda.is_available() else 'cpu')
-path = osp.join(osp.dirname(osp.realpath(__file__)), 'data/pantomime_f_32_p_32')
+path = osp.join(osp.dirname(osp.realpath(__file__)), DATASET)
 augmentation_transformer = AugmentationTransformer(False, BATCH_SIZE)
 train_dataset = PantomimeDataset(path, True)
 test_dataset = PantomimeDataset(path, False)
