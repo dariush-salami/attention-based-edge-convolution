@@ -1,11 +1,9 @@
 import os
 import os.path as osp
 import pickle
-from os import makedirs
 import importlib
 import torch
 from pantomime_dataset import PantomimeDataset
-from temporal_transformer import TemporalTransformer
 from torch_geometric.data import DataLoader
 import numpy as np
 import argparse
@@ -22,11 +20,11 @@ sys.path.append(osp.join(ROOT_DIR, 'models'))
 parser = argparse.ArgumentParser(description='Configurations')
 parser.add_argument('--model', type=str, default='modified_edgecnn',
                     help='Model to run on the data (stgcnn, dgcnn, tgcnn, modified_edgecnn) [default: modified_edgecnn]')
-parser.add_argument('--log_dir', default='logs/transformer_self_attention_temporal_dynamic_edge_cnn_k_5_mean',
+parser.add_argument('--log_dir', default='logs/two_layers_aug_self_attention_temporal_dynamic_edge_cnn_k_5_max_32_f_32_p',
                     help='Log dir [default: log]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
-parser.add_argument('--dataset', default='data/pantomime', help='Dataset path. [default: data/pantomime]')
+parser.add_argument('--dataset', default='data/pantomime_f_32_p_32', help='Dataset path. [default: data/pantomime]')
 parser.add_argument('--num_class', type=int, default=21, help='Number of classes. [default: 21]')
 
 FLAGS = parser.parse_args()
@@ -51,13 +49,12 @@ def log_string(out_str):
 
 device = torch.device('cuda:{}'.format(GPU_ID) if torch.cuda.is_available() else 'cpu')
 path = osp.join(osp.dirname(osp.realpath(__file__)), DATASET)
-transform = TemporalTransformer()
-test_dataset = PantomimeDataset(path, False, pre_transform=transform)
+test_dataset = PantomimeDataset(path, False)
 test_loader = DataLoader(
     test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=6)
 
 log_string('Selected model: {}'.format(MODEL))
-model = MODEL.Net(21).to(device)
+model = MODEL.Net(NUM_CLASSES).to(device)
 checkpoint = torch.load(Path(model_path))
 model.load_state_dict(checkpoint)
 log_string('The checkpoint was load successfully: {}'.format(model_path))

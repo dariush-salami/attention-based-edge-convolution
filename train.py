@@ -4,7 +4,6 @@ from os import makedirs
 import importlib
 import torch
 from pantomime_dataset import PantomimeDataset
-from temporal_transformer import TemporalTransformer
 from torch_geometric.data import DataLoader
 import torch.nn.functional as F
 import argparse
@@ -72,7 +71,7 @@ train_loader = DataLoader(
 test_loader = DataLoader(
     test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=6)
 
-model = MODEL.Net(21).to(device)
+model = MODEL.Net(NUM_CLASSES).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 
