@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch.nn import Sequential as Seq, Linear as Lin, ReLU, BatchNorm1d as BN, Dropout
 from torch_geometric.nn import global_max_pool, BatchNorm
 from custom_graph_convolution import CGCNConv
-from temporal_edgecnn.temporal_edgecnn import TemporalSelfAttentionDynamicEdgeConv
+from temporal_edgecnn.temporal_edgecnn import TemporalSelfAttentionDynamicEdgeConv, TemporalDynamicEdgeConv
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
@@ -99,10 +99,8 @@ class Net(torch.nn.Module):
         super().__init__()
         self.stn = STN3d()
         # self.fstn = STNkd(k=64)
-        self.conv1 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
-                                                          64, 4, k, aggr)
-        self.conv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
-                                                          128, 8, k, aggr)
+        self.conv1 = TemporalDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]), k, aggr)
+        self.conv2 = TemporalDynamicEdgeConv(MLP([2 * 64, 128]), k, aggr)
         self.lin1 = MLP([128 + 64, 1024])
 
         self.mlp = Seq(
