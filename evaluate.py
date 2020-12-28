@@ -20,11 +20,11 @@ sys.path.append(osp.join(ROOT_DIR, 'models'))
 parser = argparse.ArgumentParser(description='Configurations')
 parser.add_argument('--model', type=str, default='modified_edgecnn',
                     help='Model to run on the data (stgcnn, dgcnn, tgcnn, modified_edgecnn) [default: modified_edgecnn]')
-parser.add_argument('--log_dir', default='logs/two_layers_aug_self_attention_temporal_dynamic_edge_cnn_k_5_max_32_f_32_p',
+parser.add_argument('--log_dir', default='logs/two_layers_aug_self_attention_temporal_dynamic_edge_cnn_k_5_max_32_f_32_p_without_outlier_removal',
                     help='Log dir [default: log]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
-parser.add_argument('--dataset', default='data/pantomime_f_32_p_32', help='Dataset path. [default: data/pantomime]')
+parser.add_argument('--dataset', default='data/multipeople_f_32_p_32_without_outlier_removal', help='Dataset path. [default: data/pantomime]')
 parser.add_argument('--num_class', type=int, default=21, help='Number of classes. [default: 21]')
 
 FLAGS = parser.parse_args()
