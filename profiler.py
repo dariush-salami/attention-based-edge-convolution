@@ -1,6 +1,5 @@
 import os
 import os.path as osp
-import pickle
 import importlib
 import torch
 from pantomime_dataset import PantomimeDataset
@@ -9,8 +8,8 @@ import numpy as np
 import argparse
 from pathlib import Path
 import sys
-import calendar
-import time
+from pypapi import events, papi_high as high
+
 
 BASE_DIR = osp.dirname(osp.abspath(__file__))
 ROOT_DIR = BASE_DIR
@@ -23,7 +22,7 @@ parser.add_argument('--model', type=str, default='dgcnn',
 parser.add_argument('--log_dir', default='logs/dynamic_edge_cnn_k_20_max_32_f_32_p_without_outlier_removal',
                     help='Log dir [default: log]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
-parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
+parser.add_argument('--batch_size', type=int, default=1, help='Batch size [default: 32]')
 parser.add_argument('--dataset', default='data/primary_32_f_32_p_without_outlier_removal', help='Dataset path. [default: data/pantomime]')
 parser.add_argument('--num_class', type=int, default=21, help='Number of classes. [default: 21]')
 
@@ -64,28 +63,13 @@ params = sum([np.prod(p.size()) for p in model_parameters])
 log_string('The number of trainable parameters of the model is {}'.format(params))
 
 model.eval()
-correct = 0
-total_y_pred = []
-total_y_true = []
-total_y_score = None
 for data in test_loader:
     data = data.to(device)
     with torch.no_grad():
-        batch_pred = model(data)
-        if total_y_score is None:
-            total_y_score = batch_pred.cpu().detach().numpy()
-        else:
-            total_y_score = np.concatenate((total_y_score, batch_pred.cpu().detach().numpy()), axis=0)
-        pred = batch_pred.max(dim=1)[1]
-    correct += pred.eq(data.y.squeeze()).sum().item()
-    total_y_pred.extend(pred.cpu().detach().numpy().tolist())
-    total_y_true.extend(data.y.squeeze().cpu().detach().numpy().tolist())
-
-with open('{}/scores_{}_{}.pkl'.format(DATASET, FLAGS.model, calendar.timegm(time.gmtime())), 'wb') as handle:
-    pickle.dump({
-        'total_y_true': total_y_true,
-        'total_y_pred': total_y_pred,
-        'total_y_score': total_y_score
-    }, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        high.flops()
+        pred = model(data)
+        result = high.flops()
+        print(result)
+    break
 
 log_string('Scores have been saved to the dataset directory!')
