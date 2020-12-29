@@ -64,10 +64,17 @@ params = sum([np.prod(p.size()) for p in model_parameters])
 log_string('The number of trainable parameters of the model is {}'.format(params))
 
 model.eval()
+number_of_batches_to_average = 10
+current_batch = 0
+total_time = 0
 for data in test_loader:
     data = data.to(device)
     with torch.no_grad():
         start_time = time.time()
         pred = model(data)
-        print("--- %s seconds ---" % (time.time() - start_time))
-    break
+        end_time = time.time() - start_time
+        total_time += end_time - start_time
+        current_batch += 1
+    if current_batch >= number_of_batches_to_average:
+        print("--- %s seconds ---" % (total_time / number_of_batches_to_average))
+        break
