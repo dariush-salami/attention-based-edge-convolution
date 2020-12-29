@@ -23,7 +23,7 @@ parser.add_argument('--model', type=str, default='dgcnn',
 parser.add_argument('--log_dir', default='logs/dynamic_edge_cnn_k_20_max_32_f_32_p_without_outlier_removal',
                     help='Log dir [default: log]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
-parser.add_argument('--batch_size', type=int, default=1, help='Batch size [default: 32]')
+parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
 parser.add_argument('--dataset', default='data/primary_32_f_32_p_without_outlier_removal', help='Dataset path. [default: data/pantomime]')
 parser.add_argument('--num_class', type=int, default=21, help='Number of classes. [default: 21]')
 
