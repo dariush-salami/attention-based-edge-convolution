@@ -9,6 +9,7 @@ import argparse
 from pathlib import Path
 import sys
 from pypapi import events, papi_high as high
+import time
 
 
 BASE_DIR = osp.dirname(osp.abspath(__file__))
@@ -17,12 +18,12 @@ sys.path.append(BASE_DIR)
 sys.path.append(osp.join(ROOT_DIR, 'models'))
 
 parser = argparse.ArgumentParser(description='Configurations')
-parser.add_argument('--model', type=str, default='dgcnn',
+parser.add_argument('--model', type=str, default='modified_edgecnn',
                     help='Model to run on the data (stgcnn, dgcnn, tgcnn, modified_edgecnn) [default: modified_edgecnn]')
-parser.add_argument('--log_dir', default='logs/dynamic_edge_cnn_k_20_max_32_f_32_p_without_outlier_removal',
+parser.add_argument('--log_dir', default='logs/two_layers_aug_self_attention_temporal_dynamic_edge_cnn_k_5_max_32_f_32_p_without_outlier_removal',
                     help='Log dir [default: log]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
-parser.add_argument('--batch_size', type=int, default=1, help='Batch size [default: 32]')
+parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
 parser.add_argument('--dataset', default='data/primary_32_f_32_p_without_outlier_removal', help='Dataset path. [default: data/pantomime]')
 parser.add_argument('--num_class', type=int, default=21, help='Number of classes. [default: 21]')
 
@@ -66,10 +67,7 @@ model.eval()
 for data in test_loader:
     data = data.to(device)
     with torch.no_grad():
-        high.flops()
+        start_time = time.time()
         pred = model(data)
-        result = high.flops()
-        print(result)
+        print("--- %s seconds ---" % (time.time() - start_time))
     break
-
-log_string('Scores have been saved to the dataset directory!')
