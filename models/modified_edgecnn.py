@@ -99,8 +99,10 @@ class Net(torch.nn.Module):
         super().__init__()
         self.stn = STN3d()
         # self.fstn = STNkd(k=64)
-        self.conv1 = TemporalDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]), k, aggr)
-        self.conv2 = TemporalDynamicEdgeConv(MLP([2 * 64, 128]), k, aggr)
+        self.conv1 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
+                                                          64, 4, k, aggr)
+        self.conv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
+                                                          128, 8, k, aggr)
         self.lin1 = MLP([128 + 64, 1024])
 
         self.mlp = Seq(
