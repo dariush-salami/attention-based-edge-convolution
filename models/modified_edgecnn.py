@@ -3,7 +3,8 @@ import torch.nn.functional as F
 from torch.nn import Sequential as Seq, Linear as Lin, ReLU, BatchNorm1d as BN, Dropout
 from torch_geometric.nn import global_max_pool, BatchNorm
 from custom_graph_convolution import CGCNConv
-from temporal_edgecnn.temporal_edgecnn import TemporalSelfAttentionDynamicEdgeConv, TemporalDynamicEdgeConv
+from temporal_edgecnn.temporal_edgecnn import TemporalSelfAttentionDynamicEdgeConv, TemporalDynamicEdgeConv, \
+    AutomatedGraphDynamicEdgeConv
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
@@ -46,7 +47,7 @@ class STN3d(nn.Module):
         x = F.relu(self.bn5(self.fc2(x)))
         x = self.fc3(x)
 
-        iden = Variable(torch.from_numpy(np.array([1, 0, 0, 0, 1, 0, 0, 0, 1]).astype(np.float32)).to(x.device))\
+        iden = Variable(torch.from_numpy(np.array([1, 0, 0, 0, 1, 0, 0, 0, 1]).astype(np.float32)).to(x.device)) \
             .view(1, 9).repeat(
             batchsize, 1)
         x = x + iden
@@ -95,12 +96,21 @@ class STNkd(nn.Module):
 
 
 class Net(torch.nn.Module):
-    def __init__(self, out_channels, k=5, aggr='max'):
+    def __init__(self, out_channels, k=8, aggr='max'):
         super().__init__()
         self.stn = STN3d()
         # self.fstn = STNkd(k=64)
-        self.conv1 = TemporalDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]), k, aggr)
-        self.conv2 = TemporalDynamicEdgeConv(MLP([2 * 64, 128]), k, aggr)
+        self.conv1 = AutomatedGraphDynamicEdgeConv(MLP([3, 16]),
+                                                   MLP([2 * 16, 64, 64, 64]),
+                                                   16, 64, 4, k, aggr)
+        self.conv2 = AutomatedGraphDynamicEdgeConv(None,
+                                                   MLP([2 * 64, 128]),
+                                                   64, 128, 8, k, aggr)
+
+        # self.conv1 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
+        #                                                   64, 4, k, aggr)
+        # self.conv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
+        #                                                   128, 8, k, aggr)
         self.lin1 = MLP([128 + 64, 1024])
 
         self.mlp = Seq(
