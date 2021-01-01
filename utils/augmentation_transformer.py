@@ -30,3 +30,25 @@ class AugmentationTransformer(object):
         ).to(data.x.device)
         return data
 
+
+class ModelNetAugmentationTransformer(object):
+    def __init__(self, normal_channel, batch_size):
+        self.normal_channel = normal_channel
+        self.batch_size = batch_size
+
+    def __call__(self, data):
+        batch_data = data.pos.cpu().detach().numpy().reshape((self.batch_size, -1, 3))
+        if self.normal_channel:
+            rotated_data = provider.rotate_point_cloud_with_normal(batch_data)
+            rotated_data = provider.rotate_perturbation_point_cloud_with_normal(rotated_data)
+        else:
+            rotated_data = provider.rotate_point_cloud(batch_data)
+            rotated_data = provider.rotate_perturbation_point_cloud(rotated_data)
+        jittered_data = provider.random_scale_point_cloud(rotated_data[:, :, 0:3])
+        jittered_data = provider.shift_point_cloud(jittered_data)
+        jittered_data = provider.jitter_point_cloud(jittered_data)
+        rotated_data[:, :, 0:3] = jittered_data
+        data_after_augmentation, shuffled_indices = provider.shuffle_points(rotated_data)
+        data.pos = torch.from_numpy(data_after_augmentation.reshape(-1, 3)).to(data.pos.device)
+        data.x = torch.from_numpy(data_after_augmentation.reshape(-1, 3)).to(data.x.device)
+        return data

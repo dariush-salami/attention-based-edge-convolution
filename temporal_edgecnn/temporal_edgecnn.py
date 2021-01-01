@@ -269,7 +269,7 @@ class AutomatedGraphDynamicEdgeConv(MessagePassing):
         if knn is None:
             raise ImportError('`AutomatedGraphDynamicEdgeConv` requires `torch-cluster`.')
         self.k = k
-        self.graph_creator = SelfAttentionEdgeIndexCreatorLayer(graph_creation_in_features, head_num, k)
+        self.graph_creator = SelfAttentionEdgeIndexCreatorLayer(graph_creation_in_features, 1, k)
         self.nn_before_graph_creation = nn_before_graph_creation
         self.nn = nn
         self.multihead_attn = MultiHeadAttention(in_features, head_num)
