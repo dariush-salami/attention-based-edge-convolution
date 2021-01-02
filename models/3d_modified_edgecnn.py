@@ -95,7 +95,7 @@ class STNkd(nn.Module):
 
 
 class Net(torch.nn.Module):
-    def __init__(self, out_channels, k=8, aggr='max'):
+    def __init__(self, out_channels, k=20, aggr='max'):
         super().__init__()
         self.stn = STN3d()
         # self.fstn = STNkd(k=64)

@@ -21,7 +21,7 @@ parser = argparse.ArgumentParser(description='Configurations')
 parser.add_argument('--model', type=str, default='3d_modified_edgecnn',
                     help='Model to run on the data (stgcnn, dgcnn, tgcnn, modified_edgecnn, 3d_modified_edgecnn) [default: modified_edgecnn]')
 parser.add_argument('--log_dir', default='stgcnn', help='Log dir [default: stgcnn]')
-parser.add_argument('--k', default=5, help='Number of nearest points [default: 5]')
+parser.add_argument('--k', default=20, help='Number of nearest points [default: 5]')
 parser.add_argument('--t', default=2, help='Number of future frames to look at [default: 5]')
 parser.add_argument('--max_epoch', type=int, default=1000, help='Epoch to run [default: 251]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
