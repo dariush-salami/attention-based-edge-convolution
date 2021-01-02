@@ -50,5 +50,4 @@ class ModelNetAugmentationTransformer(object):
         rotated_data[:, :, 0:3] = jittered_data
         data_after_augmentation, shuffled_indices = provider.shuffle_points(rotated_data)
         data.pos = torch.from_numpy(data_after_augmentation.reshape(-1, 3)).to(data.pos.device)
-        data.x = torch.from_numpy(data_after_augmentation.reshape(-1, 3)).to(data.x.device)
         return data

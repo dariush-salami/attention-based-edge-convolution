@@ -281,7 +281,6 @@ class AutomatedGraphDynamicEdgeConv(MessagePassing):
 
     def forward(
             self, x: Union[Tensor, PairTensor],
-            sequence_number: Union[Tensor, PairTensor],
             batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
         batch_size = len(np.unique(batch.cpu().numpy()))
         num_point = len(x) // batch_size
