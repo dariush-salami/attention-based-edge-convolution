@@ -66,7 +66,7 @@ def log_string(out_str):
 device = torch.device('cuda:{}'.format(GPU_ID) if torch.cuda.is_available() else 'cpu')
 path = osp.join(osp.dirname(osp.realpath(__file__)), DATASET)
 augmentation_transformer = ModelNetAugmentationTransformer(False, BATCH_SIZE)
-pre_transform, transform = Transformers.NormalizeScale(), Transformers.SamplePoints(2048)
+pre_transform, transform = Transformers.NormalizeScale(), Transformers.SamplePoints(1024)
 train_dataset = ModelNet(path, '40', True, transform, pre_transform)
 test_dataset = ModelNet(path, '40', False, transform, pre_transform)
 train_loader = DataLoader(
