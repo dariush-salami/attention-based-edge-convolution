@@ -104,13 +104,15 @@ class Net(torch.nn.Module):
                                                    16, 64, 4, k, aggr)
         self.conv2 = AutomatedGraphDynamicEdgeConv(None,
                                                    MLP([2 * 64, 128]),
-                                                   64, 128, 4, k, aggr)
-
+                                                   64, 128, 8, k, aggr)
+        self.conv3 = AutomatedGraphDynamicEdgeConv(None,
+                                                   MLP([2 * 128, 256]),
+                                                   128, 256, 16, k, aggr)
         # self.conv1 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
         #                                                   64, 4, k, aggr)
         # self.conv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
         #                                                   128, 8, k, aggr)
-        self.lin1 = MLP([128 + 64, 1024])
+        self.lin1 = MLP([256 + 128 + 64, 1024])
 
         self.mlp = Seq(
             MLP([1024, 512]), Dropout(0.5), MLP([512, 256]), Dropout(0.5),
@@ -125,7 +127,8 @@ class Net(torch.nn.Module):
         pos = pos.reshape(-1, 3)
         x1 = self.conv1(pos, batch)
         x2 = self.conv2(x1, batch)
-        out = self.lin1(torch.cat([x1, x2], dim=1))
+        x3 = self.conv3(x2, batch)
+        out = self.lin1(torch.cat([x1, x2, x3], dim=1))
         out = global_max_pool(out, batch)
         out = self.mlp(out)
         return F.log_softmax(out, dim=1)
