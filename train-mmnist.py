@@ -16,7 +16,7 @@ sys.path.append(BASE_DIR)
 sys.path.append(osp.join(ROOT_DIR, 'models'))
 
 parser = argparse.ArgumentParser(description='Configurations')
-parser.add_argument('--model', type=str, default='modified_edgecnn',
+parser.add_argument('--model', type=str, default='modified_edgecnn_regression',
                     help='Model to run on the data (stgcnn, dgcnn, tgcnn, modified_edgecnn) [default: modified_edgecnn]')
 parser.add_argument('--log_dir', default='stgcnn', help='Log dir [default: stgcnn]')
 parser.add_argument('--k', default=5, help='Number of nearest points [default: 5]')
@@ -65,9 +65,9 @@ augmentation_transformer = MMNISTTransformer(BATCH_SIZE)
 train_dataset = MMNISTDataset(path, True)
 test_dataset = MMNISTDataset(path, False)
 train_loader = DataLoader(
-    train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=6)
+    train_dataset, batch_size=BATCH_SIZE, shuffle=True)#), num_workers=6)
 test_loader = DataLoader(
-    test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=6)
+    test_dataset, batch_size=BATCH_SIZE, shuffle=False)#, num_workers=6)
 
 model = MODEL.Net(21).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
