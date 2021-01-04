@@ -104,10 +104,10 @@ class Net(torch.nn.Module):
                                                    16, 64, 4, k, aggr)
         self.conv2 = AutomatedGraphDynamicEdgeConv(None,
                                                    MLP([2 * 64, 128]),
-                                                   64, 128, 8, k, aggr)
+                                                   64, 128, 4, k, aggr)
         self.conv3 = AutomatedGraphDynamicEdgeConv(None,
                                                    MLP([2 * 128, 256]),
-                                                   128, 256, 16, k, aggr)
+                                                   128, 256, 4, k, aggr)
         # self.conv1 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
         #                                                   64, 4, k, aggr)
         # self.conv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
