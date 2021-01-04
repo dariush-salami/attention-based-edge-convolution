@@ -9,6 +9,7 @@ import torch.nn.functional as F
 import argparse
 import sys
 from utils.augmentation_transformer import MMNISTTransformer
+from chamfer_distance import ChamferDistance
 
 BASE_DIR = osp.dirname(osp.abspath(__file__))
 ROOT_DIR = BASE_DIR
@@ -69,10 +70,10 @@ train_loader = DataLoader(
 test_loader = DataLoader(
     test_dataset, batch_size=BATCH_SIZE, shuffle=False)#, num_workers=6)
 
-model = MODEL.Net(21).to(device)
+model = MODEL.Net(40960).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
-
+criterion = ChamferDistance()
 
 def train():
     model.train()
@@ -83,7 +84,8 @@ def train():
         data = augmentation_transformer(data)
         optimizer.zero_grad()
         out = model(data)
-        loss = F.nll_loss(out, data.y.squeeze())
+        dist1, dist2 = criterion(out.reshape(-1, 2048, 3), data.x.reshape(-1, 2048, 3))
+        loss = (torch.mean(dist1)) + (torch.mean(dist2))
         loss.backward()
         total_loss += loss.item() * data.num_graphs
         optimizer.step()
