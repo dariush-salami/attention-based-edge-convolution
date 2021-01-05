@@ -85,7 +85,7 @@ def train():
         optimizer.zero_grad()
         out = model(data)
         labels = data.y[:, 1:]
-        pc_shape = (data.num_graphs, data.num_nodes / data.num_graphs, 3)
+        pc_shape = (data.num_graphs, data.num_nodes // data.num_graphs, 3)
         dist1, dist2 = criterion(out.reshape(pc_shape), labels.reshape(pc_shape))
         loss = (torch.mean(dist1)) + (torch.mean(dist2))
         loss.backward()
