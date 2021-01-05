@@ -84,7 +84,8 @@ def train():
         data = augmentation_transformer(data)
         optimizer.zero_grad()
         out = model(data)
-        dist1, dist2 = criterion(out.reshape(-1, 2048, 3), data.x.reshape(-1, 2048, 3))
+        labels = data.y[:, 1:]
+        dist1, dist2 = criterion(out.reshape(data.y.shape), labels)
         loss = (torch.mean(dist1)) + (torch.mean(dist2))
         loss.backward()
         total_loss += loss.item() * data.num_graphs
