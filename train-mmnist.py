@@ -70,7 +70,7 @@ train_loader = DataLoader(
 test_loader = DataLoader(
     test_dataset, batch_size=BATCH_SIZE, shuffle=False)#, num_workers=6)
 
-model = MODEL.Net(1280).to(device)
+model = MODEL.Net(1280*3).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 criterion = ChamferDistance()
@@ -85,7 +85,7 @@ def train():
         optimizer.zero_grad()
         out = model(data)
         labels = data.y[:, 1:]
-        dist1, dist2 = criterion(out.reshape(data.y.shape), labels)
+        dist1, dist2 = criterion(out.reshape(labels.shape), labels)
         loss = (torch.mean(dist1)) + (torch.mean(dist2))
         loss.backward()
         total_loss += loss.item() * data.num_graphs
