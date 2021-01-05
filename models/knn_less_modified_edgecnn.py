@@ -100,17 +100,17 @@ class Net(torch.nn.Module):
         super().__init__()
         self.stn = STN3d()
         # self.fstn = STNkd(k=64)
-        # self.conv1 = AutomatedGraphDynamicEdgeConv(MLP([3, 16]),
-        #                                            MLP([2 * 16, 64, 64, 64]),
-        #                                            16, 64, 4, k, aggr)
-        # self.conv2 = AutomatedGraphDynamicEdgeConv(None,
-        #                                            MLP([2 * 64, 128]),
-        #                                            64, 128, 8, k, aggr)
+        self.conv1 = AutomatedGraphDynamicEdgeConv(MLP([3, 16]),
+                                                   MLP([2 * 16, 64, 64, 64]),
+                                                   16, 64, 4, k, aggr)
+        self.conv2 = AutomatedGraphDynamicEdgeConv(None,
+                                                   MLP([2 * 64, 128]),
+                                                   64, 128, 8, k, aggr)
 
-        self.conv1 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
-                                                          64, 4, k, aggr)
-        self.conv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
-                                                          128, 8, k, aggr)
+        # self.conv1 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
+        #                                                   64, 4, k, aggr)
+        # self.conv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
+        #                                                   128, 8, k, aggr)
         self.lin1 = MLP([128 + 64, 1024])
 
         self.mlp = Seq(
@@ -124,9 +124,9 @@ class Net(torch.nn.Module):
         pos = pos.transpose(2, 1)
         pos = torch.bmm(pos, trans)
         pos = pos.reshape(-1, 3)
-        x1 = self.conv1(pos, sequence_numbers, batch)
-        x2 = self.conv2(x1, sequence_numbers, batch)
+        x1, first_edge_index = self.conv1(pos, sequence_numbers, batch)
+        x2, second_edge_index = self.conv2(x1, sequence_numbers, batch)
         out = self.lin1(torch.cat([x1, x2], dim=1))
         out = global_max_pool(out, batch)
         out = self.mlp(out)
-        return F.log_softmax(out, dim=1)
+        return F.log_softmax(out, dim=1), torch.stack((first_edge_index, second_edge_index), 0)

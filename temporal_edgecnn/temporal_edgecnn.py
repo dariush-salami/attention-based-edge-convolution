@@ -297,7 +297,7 @@ class AutomatedGraphDynamicEdgeConv(MessagePassing):
         edge_index = (edge_index + point_index_corrector).permute(1, 0, 2).reshape(2, -1)
 
         # propagate_type: (x: PairTensor)
-        return self.propagate(edge_index, x=x, size=None, batch=batch)
+        return self.propagate(edge_index, x=x, size=None, batch=batch), edge_index
 
     def message(self, x_i: Tensor, x_j: Tensor) -> Tensor:
         return self.nn(torch.cat([x_i, x_j - x_i], dim=-1))
