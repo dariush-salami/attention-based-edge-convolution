@@ -26,7 +26,7 @@ parser.add_argument('--k', default=5, help='Number of nearest points [default: 5
 parser.add_argument('--t', default=2, help='Number of future frames to look at [default: 5]')
 parser.add_argument('--alpha', type=float, default=1.0, help='Weigh on CD loss [default: 1.0]')
 parser.add_argument('--beta', type=float, default=1.0, help='Weigh on EMD loss [default: 1.0]')
-parser.add_argument('--max_epoch', type=int, default=1000, help='Epoch to run [default: 251]')
+parser.add_argument('--max_epoch', type=int, default=100, help='Epoch to run [default: 251]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
 parser.add_argument('--dataset', default='data/mmnist', help='Dataset path. [default: data/pantomime]')
@@ -111,7 +111,7 @@ test_loader = DataLoader(
     test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=6)
 
 model = MODEL.Net(1280*3).to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 ch = ChamferDistance()
 emd = EarthMoverDistance()
@@ -120,7 +120,14 @@ def train():
     model.train()
 
     total_loss = 0
+    total_ch_dist = 0
+    total_em_dist = 0
+    step = 0
     for data in train_loader:
+#         if step % 100 == 1:
+#             print(step)
+#             print('ch: ', ch_dist.item())
+#             print('emd: ', emd_dist.item())
         data = data.to(device)
         data = augmentation_transformer(data)
         optimizer.zero_grad()
@@ -128,62 +135,94 @@ def train():
         labels = data.y[:, 1:].float()
         pc_shape = (data.num_graphs, data.num_nodes // data.num_graphs, 3)
         dist1, dist2 = ch(out.reshape(pc_shape), labels.reshape(pc_shape))
-        ch_dist = (torch.mean(dist1)) + (torch.mean(dist2))/10
-        emd_dist = torch.mean(emd(out.reshape(pc_shape), labels.reshape(pc_shape), transpose=False))/10
+        ch_dist = (torch.mean(dist1)) + (torch.mean(dist2))
+        emd_dist = torch.mean(emd(out.reshape(pc_shape), labels.reshape(pc_shape), transpose=False))
         loss = ch_dist + emd_dist
+        loss /= 10
+        ch_dist /= 10
+        emd_dist /= 1280
         loss.backward()
+        
         total_loss += loss.item() * data.num_graphs
+        total_ch_dist += ch_dist.item() * data.num_graphs
+        total_em_dist += emd_dist.item() * data.num_graphs
+        
         optimizer.step()
-    return total_loss / len(train_dataset)
+        step += 1
+    return total_loss / len(train_dataset), total_ch_dist / len(train_dataset), total_em_dist / len(train_dataset)
 
 
 def test(loader):
     model.eval()
     correct = 0
+    total_loss = 0
+    total_ch_dist = 0
+    total_em_dist = 0
     for data in loader:
         data = data.to(device)
         with torch.no_grad():
-            pred = model(data).max(dim=1)[1]
-        correct += pred.eq(data.y.squeeze()).sum().item()
-    return correct / len(loader.dataset)
+            out = model(data)
+            labels = data.y[:, 1:]
+            pc_shape = (data.num_graphs, data.num_nodes // data.num_graphs, 3)
+            dist1, dist2 = ch(out.reshape(pc_shape), labels.reshape(pc_shape))
+            ch_dist = (torch.mean(dist1)) + (torch.mean(dist2))
+            emd_dist = torch.mean(emd(out.reshape(pc_shape), labels.reshape(pc_shape), transpose=False))
+            loss = ch_dist + emd_dist
+            loss /= 10
+            ch_dist /= 10
+            emd_dist /= 1280
+            total_loss += loss.item() * data.num_graphs
+            total_ch_dist += ch_dist.item() * data.num_graphs
+            total_em_dist += emd_dist.item() * data.num_graphs 
+            
+    return total_loss / len(train_dataset), total_ch_dist / len(train_dataset), total_em_dist / len(train_dataset)
 
 
 log_string('Selected model: {}'.format(MODEL))
+
 best_loss = -1
+best_ch_loss = -1
+best_emd_loss = -1
 best_loss_epoch = -1
 current_loss = -1
+current_emd_loss = -1
+current_ch_loss = -1
 last_improvement = 0
+
 for epoch in range(1, MAX_EPOCH):
-    loss = train()
-    print(loss)
-    current_loss = test(test_loader)
+    current_loss, current_ch_loss, current_emd_loss = test(test_loader)
+    loss,_,_ = train()
+    scheduler.step()
+    current_loss, current_ch_loss, current_emd_loss = test(test_loader)
     if current_loss < best_loss:
-        log_string('Epoch {:03d}, Train Loss: {:.4f}, Test Accuracy: {:.4f}'.format(epoch, loss, current_acc))
+        log_string('Epoch {:03d}, Train Loss: {:.4f}, Test Loss: {:.4f}, Test Chamfer: {:.4f}, Test EMD: {:.4f}'.format(epoch, loss, current_loss, current_ch_loss, current_emd_loss))
         torch.save(model.cpu().state_dict(), model_path)  # saving model
-        model.cuda()
+        model.to(device)
         log_string('The model saved in {}'.format(model_path))
         best_loss = current_loss
+        best_ch_loss = current_ch_loss
+        best_emd_loss = current_emd_loss
         best_loss_epoch = epoch
         last_improvement = 0
     elif best_loss > 0:
         log_string(
-            'Epoch {:03d}, Train Loss: {:.4f}, Test Loss: {}, Best Test Loss: {}, Best Epoch: {}'.format(
-                epoch, loss, current_loss, best_loss, best_loss_epoch
+            'Epoch {:03d}, Train Loss: {:.4f}, Test Loss: {:.4f}, Test Chamfer: {:.4f}, Test EMD: {:.4f}, Best Test Loss: {}, Best Test Chamfer: {:.4f}, Best Test EMD: {:.4f} Best Epoch: {}'.format(
+                epoch, loss, current_loss, current_ch_loss, current_emd_loss, best_loss, best_ch_loss, best_emd_loss, best_loss_epoch
             ))
         last_improvement += 1
     else:
-        log_string('Epoch {:03d}, Train Loss: {:.4f}, Test Loss: {}'.format(epoch, loss, current_acc))
+        log_string('Epoch {:03d}, Train Loss: {:.4f}, Test Loss: {:.4f}, Test Chamfer: {:.4f}, Test EMD: {:.4f}'.format(epoch, loss, current_loss, current_ch_loss, current_emd_loss))
         last_improvement += 1
 
     if EARLY_STOPPING == 'True' and last_improvement > EARLY_STOPPING_PATIENCE:
         log_string('No improvement was observed after {} epochs.'.format(last_improvement))
         log_string(
-            'The best model with the loss of {} on the validation set was saved at epoch {}.'.format(
-                best_loss, best_loss_epoch
+            'The best model with the loss, chamfer, and emd of {}, {}, {}  on the validation set was saved at epoch {}.'.format(
+                best_loss, best_ch_loss, best_emd_loss, best_loss_epoch
             ))
         break
 
 if EARLY_STOPPING != 'True':
-    log_string('The best model with the loss of {} on the validation set was saved at epoch {}.'.format(
-        best_loss, best_loss_epoch
+    log_string('The best model with the loss, emd, chamfer of {}, {}, {} on the validation set was saved at epoch {}.'.format(
+        best_loss, best_ch_loss, best_emd_loss, best_loss_epoch
     ))
