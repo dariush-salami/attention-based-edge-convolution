@@ -1,8 +1,8 @@
 import torch
 from torch.utils.cpp_extension import load
 emd_cuda = load(name="emd_cuda",
-          sources=['emd_loss/emd.cpp',
-                'emd_loss/emd_kernel.cu'])
+          sources=['emd/emd.cpp',
+                'emd/emd_kernel.cu'])
 
 
 class EarthMoverDistanceFunction(torch.autograd.Function):
