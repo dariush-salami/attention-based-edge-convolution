@@ -1,1 +1,1 @@
-from .emd import EarthMoverDistance
+from .emd import Earth_Mover_Distance
