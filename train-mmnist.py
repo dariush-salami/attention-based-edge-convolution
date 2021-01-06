@@ -190,7 +190,7 @@ current_ch_loss = -1
 last_improvement = 0
 
 for epoch in range(1, MAX_EPOCH):
-    current_loss, current_ch_loss, current_emd_loss = test(test_loader)
+#     current_loss, current_ch_loss, current_emd_loss = test(test_loader)
     loss,_,_ = train()
     scheduler.step()
     current_loss, current_ch_loss, current_emd_loss = test(test_loader)
