@@ -180,13 +180,13 @@ def test(loader):
 
 log_string('Selected model: {}'.format(MODEL))
 
-best_loss = -1
-best_ch_loss = -1
-best_emd_loss = -1
+best_loss = 1e8
+best_ch_loss = 1e8
+best_emd_loss = 1e8
 best_loss_epoch = -1
-current_loss = -1
-current_emd_loss = -1
-current_ch_loss = -1
+current_loss = 0
+current_emd_loss = 0
+current_ch_loss = 0
 last_improvement = 0
 
 for epoch in range(1, MAX_EPOCH):
