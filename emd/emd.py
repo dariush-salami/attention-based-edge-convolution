@@ -23,7 +23,8 @@ class EarthMoverDistanceFunction(torch.autograd.Function):
         grad_xyz1, grad_xyz2 = emd_cuda.matchcost_backward(grad_cost, xyz1, xyz2, match)
         return grad_xyz1, grad_xyz2
 
-class Earth_Mover_Distance(torch.nn.Module):
+
+class EarthMoverDistance(torch.nn.Module):
     def forward(self, xyz1, xyz2, transpose=True):
         """Earth Mover Distance (Approx)
 
