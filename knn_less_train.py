@@ -24,10 +24,10 @@ parser.add_argument('--t', default=2, help='Number of future frames to look at [
 parser.add_argument('--max_epoch', type=int, default=1000, help='Epoch to run [default: 251]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
-parser.add_argument('--dataset', default='data/pantomime', help='Dataset path. [default: data/pantomime]')
+parser.add_argument('--dataset', default='data/primary_32_f_32_p_without_outlier_removal', help='Dataset path. [default: data/pantomime]')
 parser.add_argument('--num_class', type=int, default=21, help='Number of classes. [default: 21]')
-parser.add_argument('--graph_creation_regularizer_coefficient', type=int, default=0.00001,
-                    help='Graph creation regularizer coefficient for temporal data. [default: 0.00001]')
+parser.add_argument('--graph_creation_regularizer_coefficient', type=int, default=0.5,
+                    help='Graph creation regularizer coefficient for temporal data. [default: 0.5]')
 parser.add_argument('--early_stopping', default='True', help='Whether to use early stopping [default: True]')
 parser.add_argument('--early_stopping_patience', type=int, default=100,
                     help='Stop the training if there is no improvements after this ' +
@@ -89,17 +89,14 @@ def train():
         data = augmentation_transformer(data)
         optimizer.zero_grad()
         out, edge_indices = model(data)
-        graph_creation_regularizer_loss = None
+        graph_creation_regularizer_loss = 0
         for edge_index in edge_indices:
             source_seq_number = seq_numbers[edge_index[0]]
             destination_seq_number = seq_numbers[edge_index[1]]
             difference = torch.pow(destination_seq_number - source_seq_number, 2)
             difference[difference == 0] = 1
-            difference = torch.sum(difference)
-            if graph_creation_regularizer_loss is None:
-                graph_creation_regularizer_loss = difference
-            else:
-                graph_creation_regularizer_loss += difference
+            difference = torch.mean(difference)
+            graph_creation_regularizer_loss += difference
         loss = F.nll_loss(out,
                           data.y.squeeze()) + GRAPH_CREATION_REGULARIZER_COEFFICIENT * graph_creation_regularizer_loss
         loss.backward()
