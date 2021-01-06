@@ -25,25 +25,25 @@ class EarthMoverDistanceFunction(torch.autograd.Function):
 
 class Earth_Mover_Distance(torch.nn.Module):
     def forward(self, xyz1, xyz2, transpose=True):
-    """Earth Mover Distance (Approx)
+        """Earth Mover Distance (Approx)
 
-    Args:
-        xyz1 (torch.Tensor): (b, 3, n1)
-        xyz2 (torch.Tensor): (b, 3, n1)
-        transpose (bool): whether to transpose inputs as it might be BCN format.
-            Extensions only support BNC format.
+        Args:
+            xyz1 (torch.Tensor): (b, 3, n1)
+            xyz2 (torch.Tensor): (b, 3, n1)
+            transpose (bool): whether to transpose inputs as it might be BCN format.
+                Extensions only support BNC format.
 
-    Returns:
-        cost (torch.Tensor): (b)
+        Returns:
+            cost (torch.Tensor): (b)
 
-    """
-    if xyz1.dim() == 2:
-        xyz1 = xyz1.unsqueeze(0)
-    if xyz2.dim() == 2:
-        xyz2 = xyz2.unsqueeze(0)
-    if transpose:
-        xyz1 = xyz1.transpose(1, 2)
-        xyz2 = xyz2.transpose(1, 2)
-    cost = EarthMoverDistanceFunction.apply(xyz1, xyz2)
-    return cost
+        """
+        if xyz1.dim() == 2:
+            xyz1 = xyz1.unsqueeze(0)
+        if xyz2.dim() == 2:
+            xyz2 = xyz2.unsqueeze(0)
+        if transpose:
+            xyz1 = xyz1.transpose(1, 2)
+            xyz2 = xyz2.transpose(1, 2)
+        cost = EarthMoverDistanceFunction.apply(xyz1, xyz2)
+        return cost
 

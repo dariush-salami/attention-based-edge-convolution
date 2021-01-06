@@ -3,6 +3,7 @@ import os.path as osp
 from os import makedirs
 import importlib
 import torch
+import numpy as np
 from mmnist_dataset import MMNISTDataset
 from torch_geometric.data import DataLoader
 import torch.nn.functional as F
@@ -64,7 +65,7 @@ device = torch.device('cuda:{}'.format(GPU_ID) if torch.cuda.is_available() else
 path = osp.join(osp.dirname(osp.realpath(__file__)), DATASET)
 augmentation_transformer = MMNISTTransformer(BATCH_SIZE)
 train_dataset = MMNISTDataset(path, True)
-test_dataset = MMNISTDataset(path, False)
+test_dataset = np.load('test-1mnist-64-128point-20step.npy')
 train_loader = DataLoader(
     train_dataset, batch_size=BATCH_SIZE, shuffle=True)#), num_workers=6)
 test_loader = DataLoader(
@@ -106,9 +107,9 @@ def test(loader):
 
 
 log_string('Selected model: {}'.format(MODEL))
-best_acc = -1
-best_acc_epoch = -1
-current_acc = -1
+best_dist = -1
+best_dist_epoch = -1
+current_dist = -1
 last_improvement = 0
 for epoch in range(1, MAX_EPOCH):
     loss = train()
