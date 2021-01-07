@@ -28,10 +28,10 @@ class TemporalSelfAttentionEdgeIndexCreatorLayer(nn.Module):
 
         energy = torch.einsum('nqhd,nkhd->nhqk', queries, keys)
 
-        attention = torch.softmax(energy / (self.embed_size ** (1 / 2)), dim=3)
-
+        normalized_energy = energy / (self.embed_size ** (1 / 2))
+        attention = torch.softmax(torch.mean(normalized_energy, dim=1), dim=2)
         edges_indices = torch.sort(
-            torch.topk(torch.mean(attention, dim=1), self.head_edges * self.heads, 2)[1].reshape(batch_size, key_len,
+            torch.topk(attention, self.head_edges * self.heads, 2)[1].reshape(batch_size, key_len,
                                                                                                  -1).to(keys.device),
             2)[0]
 
