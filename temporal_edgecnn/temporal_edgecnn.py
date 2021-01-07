@@ -355,6 +355,8 @@ class TemporalAutomatedGraphDynamicEdgeConv(MessagePassing):
             self, x: Union[Tensor, PairTensor],
             sequence_number: Union[Tensor, PairTensor],
             batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
+        sequence_number -= torch.min(sequence_number)
+        sequence_number /= torch.max(sequence_number)
         batch_size = len(np.unique(batch.cpu().numpy()))
         num_point = len(x) // batch_size
         if self.nn_before_graph_creation:

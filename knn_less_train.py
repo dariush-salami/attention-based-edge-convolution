@@ -28,8 +28,8 @@ parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
 parser.add_argument('--dataset', default='data/primary_32_f_32_p_without_outlier_removal', help='Dataset path. [default: data/pantomime]')
 parser.add_argument('--num_class', type=int, default=21, help='Number of classes. [default: 21]')
-parser.add_argument('--graph_creation_regularizer_coefficient', type=int, default=0.5,
-                    help='Graph creation regularizer coefficient for temporal data. [default: 0.5]')
+parser.add_argument('--graph_creation_regularizer_coefficient', type=int, default=0.01,
+                    help='Graph creation regularizer coefficient for temporal data. [default: 0.01]')
 parser.add_argument('--early_stopping', default='True', help='Whether to use early stopping [default: True]')
 parser.add_argument('--early_stopping_patience', type=int, default=100,
                     help='Stop the training if there is no improvements after this ' +
@@ -104,7 +104,7 @@ def train(epoch_num):
             if batch_index == len(train_dataset) - 1:
                 writer.add_histogram('last_batch_{}_edge_index'.format(index+1), torch.stack((
                     source_seq_number, destination_seq_number
-                )), epoch)
+                )), epoch_num)
         nll_loss = F.nll_loss(out, data.y.squeeze())
         regularizer_loss = GRAPH_CREATION_REGULARIZER_COEFFICIENT * graph_creation_regularizer_loss
         aggregated_loss = nll_loss + regularizer_loss
@@ -113,9 +113,9 @@ def train(epoch_num):
         total_nll_loss += nll_loss * data.num_graphs
         total_regularizer_loss += regularizer_loss * data.num_graphs
         optimizer.step()
-    writer.add_scalar('nll_loss', total_nll_loss / len(train_dataset))
-    writer.add_scalar('regularizer_loss', total_regularizer_loss / len(train_dataset))
-    writer.add_scalar('average_loss', total_loss / len(train_dataset))
+    writer.add_scalar('nll_loss', total_nll_loss / len(train_dataset), epoch_num)
+    writer.add_scalar('regularizer_loss', total_regularizer_loss / len(train_dataset), epoch_num)
+    writer.add_scalar('average_loss', total_loss / len(train_dataset), epoch_num)
     return total_loss / len(train_dataset)
 
 
