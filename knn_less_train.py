@@ -101,10 +101,8 @@ def train(epoch_num):
             difference[difference == 0] = 1
             difference = torch.mean(difference)
             graph_creation_regularizer_loss += difference
-            if batch_index == len(train_dataset) - 1:
-                writer.add_histogram('last_batch_{}_edge_index'.format(index+1), torch.stack((
-                    source_seq_number, destination_seq_number
-                )), epoch_num)
+            if batch_index == 0:
+                writer.add_histogram('last_batch_{}_edge_index'.format(index+1), destination_seq_number, epoch_num)
         nll_loss = F.nll_loss(out, data.y.squeeze())
         regularizer_loss = GRAPH_CREATION_REGULARIZER_COEFFICIENT * graph_creation_regularizer_loss
         aggregated_loss = nll_loss + regularizer_loss
