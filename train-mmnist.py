@@ -21,7 +21,7 @@ sys.path.append(osp.join(ROOT_DIR, 'models'))
 parser = argparse.ArgumentParser(description='Configurations')
 parser.add_argument('--model', type=str, default='modified_edgecnn_regression',
                     help='Model to run on the data (stgcnn, dgcnn, tgcnn, modified_edgecnn) [default: modified_edgecnn]')
-parser.add_argument('--log_dir', default='stgcnn', help='Log dir [default: stgcnn]')
+parser.add_argument('--log_dir', default='temporal_regression_mmnist', help='Log dir [default: stgcnn]')
 parser.add_argument('--k', default=5, help='Number of nearest points [default: 5]')
 parser.add_argument('--t', default=2, help='Number of future frames to look at [default: 5]')
 parser.add_argument('--alpha', type=float, default=1.0, help='Weigh on CD loss [default: 1.0]')
@@ -120,12 +120,12 @@ def calc_loss(data, out, labels):
     out = out.reshape(pc_shape)
     labels = labels.reshape(pc_shape)
     for t in range(10):
-        pred_frame = out[:, :, t, :].squeeze()
-        frame = out[:, :, 10 + t, :].squeeze()
+        pred_frame = out[:, t, :, :].squeeze()
+        frame = labels[:, t, :, :].squeeze()
 
-        dist1, dist2 = ch(pred_frame, frame)
-        ch_dist = (torch.mean(dist1)) + (torch.mean(dist2))
-        ch_loss+=ch_dist
+        dist_forward, dist_backward = ch(pred_frame, frame)
+        ch_dist = (torch.mean(dist_forward)) + (torch.mean(dist_backward))
+        ch_loss += ch_dist
 
         emd_dist = torch.mean(emd(pred_frame, frame, transpose=False))
         emd_loss += emd_dist
@@ -133,7 +133,7 @@ def calc_loss(data, out, labels):
 
     loss /= 10
     ch_loss /= 10
-    emd_loss /= 1280
+    emd_loss /= (128 * 10)
 
     return loss, ch_loss, emd_loss
 
@@ -142,8 +142,8 @@ def train():
     model.train()
 
     total_loss = 0
-    total_ch_dist = 0
-    total_em_dist = 0
+    total_ch_loss = 0
+    total_em_loss = 0
     step = 0
     for data in train_loader:
         data = data.to(device)
@@ -151,34 +151,34 @@ def train():
         optimizer.zero_grad()
         out = model(data).float()
         labels = data.y[:, 1:].float()
-        loss, ch_dist, emd_dist = calc_loss(data, out, labels)
+        loss, ch_loss, emd_loss = calc_loss(data, out, labels)
         loss.backward()
         
         total_loss += loss.item() * data.num_graphs
-        total_ch_dist += ch_dist.item() * data.num_graphs
-        total_em_dist += emd_dist.item() * data.num_graphs
+        total_ch_loss += ch_loss.item() * data.num_graphs
+        total_em_loss += emd_loss.item() * data.num_graphs
         
         optimizer.step()
         step += 1
-    return total_loss / len(train_dataset), total_ch_dist / len(train_dataset), total_em_dist / len(train_dataset)
+    return total_loss / len(train_dataset), total_ch_loss / len(train_dataset), total_em_loss / len(train_dataset)
 
 
 def test(loader):
     model.eval()
     total_loss = 0
-    total_ch_dist = 0
-    total_em_dist = 0
+    total_ch_loss = 0
+    total_em_loss = 0
     for data in loader:
         data = data.to(device)
         with torch.no_grad():
             out = model(data)
             labels = data.y[:, 1:]
-            loss, ch_dist, emd_dist = calc_loss(data, out, labels)
+            loss, ch_loss, emd_loss = calc_loss(data, out, labels)
             total_loss += loss.item() * data.num_graphs
-            total_ch_dist += ch_dist.item() * data.num_graphs
-            total_em_dist += emd_dist.item() * data.num_graphs 
+            total_ch_loss += ch_loss.item() * data.num_graphs
+            total_em_loss += emd_loss.item() * data.num_graphs 
             
-    return total_loss / len(train_dataset), total_ch_dist / len(train_dataset), total_em_dist / len(train_dataset)
+    return total_loss / len(train_dataset), total_ch_loss / len(train_dataset), total_em_loss / len(train_dataset)
 
 
 log_string('Selected model: {}'.format(MODEL))
