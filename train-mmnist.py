@@ -69,24 +69,18 @@ def preprocess_validation(valid):
     x = valid[:, :10]
     y = valid[:, 10:]
 
-    x_seq_number = np.expand_dims(np.arange(0, 10), axis=(0, 1, 3))
-    y_seq_number = np.expand_dims(np.arange(10, 20), axis=(0, 1, 3))
+    x_seq_number = np.expand_dims(np.arange(1, 11), axis=(0, 1, 2))
+    y_seq_number = np.expand_dims(np.arange(11, 21), axis=(0, 1, 2))
+    x_seq_number = np.repeat(x_seq_number, x.shape[2], axis=-1).reshape(1, 10, -1, 1)
+    y_seq_number = np.repeat(y_seq_number, x.shape[2], axis=-1).reshape(1, 10, -1, 1)
+    x_seq_number = np.tile(x_seq_number, (x.shape[0], 1, 1, 1))
+    y_seq_number = np.tile(y_seq_number, (y.shape[0], 1, 1, 1))
 
-    x_seq_number = np.tile(x_seq_number, (x.shape[0], x.shape[2], 1, 1))
-    y_seq_number = np.tile(y_seq_number, (y.shape[0], y.shape[2], 1, 1))
+    x = np.concatenate([x_seq_number, x, np.zeros([x.shape[0], x.shape[1], x.shape[2], 1])], axis=-1)
+    y = np.concatenate([y_seq_number, y, np.zeros([y.shape[0], y.shape[1], y.shape[2], 1])], axis=-1)
 
-
-    x = x.reshape(x.shape[0], x.shape[1]*y.shape[2], x.shape[3])
-    y = y.reshape(x.shape[0], y.shape[1]*y.shape[2], y.shape[3])
-    x_seq_number = x_seq_number.reshape(x_seq_number.shape[0], x_seq_number.shape[1]*x_seq_number.shape[2]
-                                        ,x_seq_number.shape[3])
-    y_seq_number = y_seq_number.reshape(y_seq_number.shape[0], y_seq_number.shape[1]*y_seq_number.shape[2]
-                                        , y_seq_number.shape[3])
-
-
-
-    x = np.concatenate([x_seq_number, x, np.zeros([x.shape[0], x.shape[1], 1])], axis=-1)
-    y = np.concatenate([y_seq_number, y, np.zeros([y.shape[0], y.shape[1], 1])], axis=-1)
+    x = x.reshape(x.shape[0], x.shape[1] * y.shape[2], x.shape[3])
+    y = y.reshape(x.shape[0], y.shape[1] * y.shape[2], y.shape[3])
 
     x = torch.tensor(x).float()
     y = torch.tensor(y).float()
@@ -116,6 +110,34 @@ scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 ch = ChamferDistance()
 emd = EarthMoverDistance()
 
+
+
+
+
+def calc_loss(data, out, labels):
+    loss = ch_loss = emd_loss = 0
+    pc_shape = (data.num_graphs, 10, data.num_nodes//(data.num_graphs*10), 3)
+    out = out.reshape(pc_shape)
+    labels = labels.reshape(pc_shape)
+    for t in range(10):
+        pred_frame = out[:, :, t, :].squeeze()
+        frame = out[:, :, 10 + t, :].squeeze()
+
+        dist1, dist2 = ch(pred_frame, frame)
+        ch_dist = (torch.mean(dist1)) + (torch.mean(dist2))
+        ch_loss+=ch_dist
+
+        emd_dist = torch.mean(emd(pred_frame, frame, transpose=False))
+        emd_loss += emd_dist
+        loss += (CD_ALPHA*ch_dist) + (EMD_BETA*emd_dist)
+
+    loss /= 10
+    ch_loss /= 10
+    emd_loss /= 1280
+
+    return loss, ch_loss, emd_loss
+
+
 def train():
     model.train()
 
@@ -124,23 +146,12 @@ def train():
     total_em_dist = 0
     step = 0
     for data in train_loader:
-#         if step % 100 == 1:
-#             print(step)
-#             print('ch: ', ch_dist.item())
-#             print('emd: ', emd_dist.item())
         data = data.to(device)
         data = augmentation_transformer(data)
         optimizer.zero_grad()
         out = model(data).float()
         labels = data.y[:, 1:].float()
-        pc_shape = (data.num_graphs, data.num_nodes // data.num_graphs, 3)
-        dist1, dist2 = ch(out.reshape(pc_shape), labels.reshape(pc_shape))
-        ch_dist = (torch.mean(dist1)) + (torch.mean(dist2))
-        emd_dist = torch.mean(emd(out.reshape(pc_shape), labels.reshape(pc_shape), transpose=False))
-        loss = ch_dist + emd_dist
-        loss /= 10
-        ch_dist /= 10
-        emd_dist /= 1280
+        loss, ch_dist, emd_dist = calc_loss(data, out, labels)
         loss.backward()
         
         total_loss += loss.item() * data.num_graphs
@@ -154,7 +165,6 @@ def train():
 
 def test(loader):
     model.eval()
-    correct = 0
     total_loss = 0
     total_ch_dist = 0
     total_em_dist = 0
@@ -163,14 +173,7 @@ def test(loader):
         with torch.no_grad():
             out = model(data)
             labels = data.y[:, 1:]
-            pc_shape = (data.num_graphs, data.num_nodes // data.num_graphs, 3)
-            dist1, dist2 = ch(out.reshape(pc_shape), labels.reshape(pc_shape))
-            ch_dist = (torch.mean(dist1)) + (torch.mean(dist2))
-            emd_dist = torch.mean(emd(out.reshape(pc_shape), labels.reshape(pc_shape), transpose=False))
-            loss = ch_dist + emd_dist
-            loss /= 10
-            ch_dist /= 10
-            emd_dist /= 1280
+            loss, ch_dist, emd_dist = calc_loss(data, out, labels)
             total_loss += loss.item() * data.num_graphs
             total_ch_dist += ch_dist.item() * data.num_graphs
             total_em_dist += emd_dist.item() * data.num_graphs 
@@ -195,7 +198,8 @@ for epoch in range(1, MAX_EPOCH):
     scheduler.step()
     current_loss, current_ch_loss, current_emd_loss = test(test_loader)
     if current_loss < best_loss:
-        log_string('Epoch {:03d}, Train Loss: {:.4f}, Test Loss: {:.4f}, Test Chamfer: {:.4f}, Test EMD: {:.4f}'.format(epoch, loss, current_loss, current_ch_loss, current_emd_loss))
+        log_string('Epoch {:03d}, Train Loss: {:.4f}, Test Loss: {:.4f}, Test Chamfer: {:.4f}, Test EMD: {:.4f}'
+                   .format(epoch, loss, current_loss, current_ch_loss, current_emd_loss))
         torch.save(model.cpu().state_dict(), model_path)  # saving model
         model.to(device)
         log_string('The model saved in {}'.format(model_path))
@@ -206,23 +210,27 @@ for epoch in range(1, MAX_EPOCH):
         last_improvement = 0
     elif best_loss > 0:
         log_string(
-            'Epoch {:03d}, Train Loss: {:.4f}, Test Loss: {:.4f}, Test Chamfer: {:.4f}, Test EMD: {:.4f}, Best Test Loss: {}, Best Test Chamfer: {:.4f}, Best Test EMD: {:.4f} Best Epoch: {}'.format(
-                epoch, loss, current_loss, current_ch_loss, current_emd_loss, best_loss, best_ch_loss, best_emd_loss, best_loss_epoch
+            'Epoch {:03d}, Train Loss: {:.4f}, Test Loss: {:.4f}, Test Chamfer: {:.4f}, Test EMD: {:.4f},'
+            ' Best Test Loss: {}, Best Test Chamfer: {:.4f}, Best Test EMD: {:.4f} Best Epoch: {}'.format(
+                epoch, loss, current_loss, current_ch_loss, current_emd_loss, best_loss, best_ch_loss
+                , best_emd_loss, best_loss_epoch
             ))
         last_improvement += 1
     else:
-        log_string('Epoch {:03d}, Train Loss: {:.4f}, Test Loss: {:.4f}, Test Chamfer: {:.4f}, Test EMD: {:.4f}'.format(epoch, loss, current_loss, current_ch_loss, current_emd_loss))
+        log_string('Epoch {:03d}, Train Loss: {:.4f}, Test Loss: {:.4f}, Test Chamfer: {:.4f},'
+                   ' Test EMD: {:.4f}'.format(epoch, loss, current_loss, current_ch_loss, current_emd_loss))
         last_improvement += 1
 
     if EARLY_STOPPING == 'True' and last_improvement > EARLY_STOPPING_PATIENCE:
         log_string('No improvement was observed after {} epochs.'.format(last_improvement))
         log_string(
-            'The best model with the loss, chamfer, and emd of {}, {}, {}  on the validation set was saved at epoch {}.'.format(
-                best_loss, best_ch_loss, best_emd_loss, best_loss_epoch
-            ))
+            'The best model with the loss, chamfer, and emd of {}, {}, {}  on the validation set was saved at epoch {}.'
+                .format(best_loss, best_ch_loss, best_emd_loss, best_loss_epoch
+        ))
         break
 
 if EARLY_STOPPING != 'True':
-    log_string('The best model with the loss, emd, chamfer of {}, {}, {} on the validation set was saved at epoch {}.'.format(
+    log_string('The best model with the loss, emd, chamfer of {}, {}, {} on the validation set was saved at epoch {}.'
+    .format(
         best_loss, best_ch_loss, best_emd_loss, best_loss_epoch
     ))
