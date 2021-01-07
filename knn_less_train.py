@@ -9,11 +9,13 @@ import torch.nn.functional as F
 import argparse
 import sys
 from utils.augmentation_transformer import AugmentationTransformer
+from torch.utils.tensorboard import SummaryWriter
 
 BASE_DIR = osp.dirname(osp.abspath(__file__))
 ROOT_DIR = BASE_DIR
 sys.path.append(BASE_DIR)
 sys.path.append(osp.join(ROOT_DIR, 'models'))
+
 
 parser = argparse.ArgumentParser(description='Configurations')
 parser.add_argument('--model', type=str, default='knn_less_modified_edgecnn',
@@ -51,6 +53,7 @@ if not osp.exists(LOG_DIR):
     print('Creating the model checkpoint directory at {}'.format(LOG_DIR))
     makedirs(LOG_DIR)
 
+writer = SummaryWriter(LOG_DIR)
 LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
 LOG_FOUT.write(str(FLAGS) + '\n')
 
@@ -79,29 +82,40 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 
 
-def train():
+def train(epoch_num):
     model.train()
-
+    total_nll_loss = 0
+    total_regularizer_loss = 0
     total_loss = 0
-    for data in train_loader:
+    for (batch_index, data) in enumerate(train_loader):
         seq_numbers = data.x[:, 0].float()
         data = data.to(device)
         data = augmentation_transformer(data)
         optimizer.zero_grad()
         out, edge_indices = model(data)
         graph_creation_regularizer_loss = 0
-        for edge_index in edge_indices:
+        for (index, edge_index) in enumerate(edge_indices):
             source_seq_number = seq_numbers[edge_index[0]]
             destination_seq_number = seq_numbers[edge_index[1]]
             difference = torch.pow(destination_seq_number - source_seq_number, 2)
             difference[difference == 0] = 1
             difference = torch.mean(difference)
             graph_creation_regularizer_loss += difference
-        loss = F.nll_loss(out,
-                          data.y.squeeze()) + GRAPH_CREATION_REGULARIZER_COEFFICIENT * graph_creation_regularizer_loss
-        loss.backward()
-        total_loss += loss.item() * data.num_graphs
+            if batch_index == len(train_dataset) - 1:
+                writer.add_histogram('last_batch_{}_edge_index'.format(index+1), torch.stack((
+                    source_seq_number, destination_seq_number
+                )), epoch)
+        nll_loss = F.nll_loss(out, data.y.squeeze())
+        regularizer_loss = GRAPH_CREATION_REGULARIZER_COEFFICIENT * graph_creation_regularizer_loss
+        aggregated_loss = nll_loss + regularizer_loss
+        aggregated_loss.backward()
+        total_loss += aggregated_loss.item() * data.num_graphs
+        total_nll_loss += nll_loss * data.num_graphs
+        total_regularizer_loss += regularizer_loss * data.num_graphs
         optimizer.step()
+    writer.add_scalar('nll_loss', total_nll_loss / len(train_dataset))
+    writer.add_scalar('regularizer_loss', total_regularizer_loss / len(train_dataset))
+    writer.add_scalar('average_loss', total_loss / len(train_dataset))
     return total_loss / len(train_dataset)
 
 
@@ -123,8 +137,11 @@ best_acc_epoch = -1
 current_acc = -1
 last_improvement = 0
 for epoch in range(1, MAX_EPOCH):
-    loss = train()
+    loss = train(epoch)
     current_acc = test(test_loader)
+    for name, param in model.named_parameters():
+        if 'bn' not in name and torch.is_tensor(param.grad):
+            writer.add_histogram(name, param.grad, epoch)
     if current_acc > best_acc:
         log_string('Epoch {:03d}, Train Loss: {:.4f}, Test Accuracy: {:.4f}'.format(epoch, loss, current_acc))
         torch.save(model.cpu().state_dict(), model_path)  # saving model
@@ -155,3 +172,5 @@ if EARLY_STOPPING != 'True':
     log_string('The best model with the accuracy of {} on the validation set was saved at epoch {}.'.format(
         best_acc, best_acc_epoch
     ))
+
+writer.close()
