@@ -333,7 +333,7 @@ class AutomatedGraphDynamicEdgeConv(MessagePassing):
 class TemporalAutomatedGraphDynamicEdgeConv(MessagePassing):
     def __init__(self, nn_before_graph_creation: Union[Callable, None], nn: Callable, graph_creation_in_features: int,
                  in_features: int, head_num: int,
-                 k: int, aggr: str = 'max', **kwargs):
+                 k: int, aggr: str = 'max', t=3, **kwargs):
         super(TemporalAutomatedGraphDynamicEdgeConv,
               self).__init__(aggr=aggr, flow='target_to_source', **kwargs)
 
@@ -344,6 +344,7 @@ class TemporalAutomatedGraphDynamicEdgeConv(MessagePassing):
         self.nn_before_graph_creation = nn_before_graph_creation
         self.nn_for_seq_num = MLP([1, graph_creation_in_features])
         self.nn = nn
+        self.t = t
         self.multihead_attn = MultiHeadAttention(in_features, head_num)
         self.reset_parameters()
 
@@ -355,16 +356,28 @@ class TemporalAutomatedGraphDynamicEdgeConv(MessagePassing):
             self, x: Union[Tensor, PairTensor],
             sequence_number: Union[Tensor, PairTensor],
             batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
-        sequence_number -= torch.min(sequence_number)
-        sequence_number /= torch.max(sequence_number)
+        num_frames = len(np.unique(sequence_number.cpu().round().numpy()))
+        normalized_sequence_number = sequence_number.clone().to(sequence_number.device)
+        normalized_sequence_number -= torch.min(normalized_sequence_number)
+        normalized_sequence_number /= torch.max(normalized_sequence_number)
         batch_size = len(np.unique(batch.cpu().numpy()))
         num_point = len(x) // batch_size
+        num_point_per_frame = num_point // num_frames
         if self.nn_before_graph_creation:
             x = self.nn_before_graph_creation(x)
-        transformed_sequence_number = self.nn_for_seq_num(sequence_number.reshape(-1, 1))
+        transformed_sequence_number = self.nn_for_seq_num(normalized_sequence_number.reshape(-1, 1))
         graph_creator_input = torch.cat((x, transformed_sequence_number), 1)
         graph_creator_input = graph_creator_input.reshape(batch_size, -1, graph_creator_input.shape[-1])
-        edge_index = self.graph_creator(graph_creator_input, graph_creator_input)
+        mask = torch.zeros(num_point, num_point).to(x.device)
+        for frame in range(num_frames):
+            start_row_index = (frame - self.t // 2) * num_point_per_frame
+            if start_row_index < 0:
+                start_row_index = 0
+            end_row_index = (frame + self.t // 2) * num_point_per_frame
+            start_col_index = frame * num_point_per_frame
+            end_col_index = (frame + 1) * num_point_per_frame
+            mask[start_row_index:end_row_index, start_col_index:end_col_index] = 1
+        edge_index = self.graph_creator(graph_creator_input, graph_creator_input, mask)
         point_index_corrector = torch.tensor([i * num_point for i in range(batch_size)]).to(x.device)
         point_index_corrector = point_index_corrector\
             .reshape(-1, 1).repeat(1, num_point * self.k)\
