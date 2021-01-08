@@ -333,10 +333,10 @@ class AutomatedGraphDynamicEdgeConv(MessagePassing):
 class TemporalAutomatedGraphDynamicEdgeConv(MessagePassing):
     def __init__(self, nn_before_graph_creation: Union[Callable, None], nn: Callable, graph_creation_in_features: int,
                  in_features: int, head_num: int,
-                 k: int, aggr: str = 'max', t=3, **kwargs):
+                 k: int, aggr: str = 'max', t=5, **kwargs):
         super(TemporalAutomatedGraphDynamicEdgeConv,
               self).__init__(aggr=aggr, flow='target_to_source', **kwargs)
-
+        assert t % 2 == 1, 't should be an odd number'
         if knn is None:
             raise ImportError('`TemporalAutomatedGraphDynamicEdgeConv` requires `torch-cluster`.')
         self.k = k
