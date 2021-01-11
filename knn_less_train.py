@@ -153,8 +153,8 @@ for epoch in range(1, MAX_EPOCH):
     for name, param in model.named_parameters():
         if 'bn' not in name:
             if torch.is_tensor(param.grad):
-                writer.add_histogram(name, param.grad, epoch)
-            writer.add_histogram('{}.grad'.format(name), param, epoch)
+                writer.add_histogram('{}.grad'.format(name), param.grad, epoch)
+            writer.add_histogram(name, param, epoch)
     if current_acc > best_acc:
         log_string('Epoch {:03d}, Train Loss: {:.4f}, Test Accuracy: {:.4f}'.format(epoch, loss, current_acc))
         torch.save(model.cpu().state_dict(), model_path)  # saving model
