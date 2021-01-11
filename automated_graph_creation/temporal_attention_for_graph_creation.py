@@ -35,9 +35,11 @@ class TemporalSelfAttentionEdgeIndexCreatorLayer(nn.Module):
         if mask is not None:
             normalized_energy = normalized_energy.masked_fill(mask == 0, float("-1e20"))
         attention = torch.softmax(normalized_energy, dim=2)
-        attention = torch.topk(attention, self.head_edges * self.heads, 2).values.reshape(batch_size, key_len, -1)
-        edges_indices = torch.sort(attention, 2).indices
-        edges_indices = edges_indices.type(torch.float64)
+        attention = torch.topk(attention, self.head_edges * self.heads, 2)\
+            .indices\
+            .type(torch.float64)\
+            .requires_grad_(True)
+        edges_indices = torch.sort(attention, 2).values
         node_indices = self.node_indices_template \
             .repeat(batch_size).reshape(batch_size, key_len, 1) \
             .repeat(1, 1, edges_indices.shape[-1])

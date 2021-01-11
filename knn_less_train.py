@@ -107,8 +107,8 @@ def train(epoch_num):
         out, edge_indices, seq_numbers = model(data)
         graph_creation_regularizer_loss = 0
         for (index, edge_index) in enumerate(edge_indices):
-            source_seq_number = seq_numbers[edge_index[0].type(torch.long)]
-            destination_seq_number = seq_numbers[edge_index[1].type(torch.long)]
+            source_seq_number = seq_numbers[edge_index[0].type(torch.long)].requires_grad_(True)
+            destination_seq_number = seq_numbers[edge_index[1].type(torch.long)].requires_grad_(True)
             difference = torch.pow(torch.abs(destination_seq_number - source_seq_number), 3)
             difference[difference == 0] = 1
             difference = torch.mean(difference)
