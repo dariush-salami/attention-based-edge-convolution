@@ -16,7 +16,7 @@ class TemporalSelfAttentionEdgeIndexCreatorLayer(nn.Module):
 
         self.keys = nn.Linear(self.head_dim, self.head_dim, bias=False).to(device)
         self.queries = nn.Linear(self.head_dim, self.head_dim, bias=False).to(device)
-        self.node_indices_template = torch.tensor(range(num_points)).to(device)
+        self.node_indices_template = torch.tensor(range(num_points), dtype=torch.float64, requires_grad=True).to(device)
 
     def forward(self, keys, query, mask=None):
         batch_size = query.shape[0]
@@ -35,9 +35,9 @@ class TemporalSelfAttentionEdgeIndexCreatorLayer(nn.Module):
         if mask is not None:
             normalized_energy = normalized_energy.masked_fill(mask == 0, float("-1e20"))
         attention = torch.softmax(normalized_energy, dim=2)
-        edges_indices = torch.sort(
-            torch.topk(attention, self.head_edges * self.heads, 2)[1].reshape(batch_size, key_len, -1), 2)[0]
-
+        attention = torch.topk(attention, self.head_edges * self.heads, 2).values.reshape(batch_size, key_len, -1)
+        edges_indices = torch.sort(attention, 2).indices
+        edges_indices = edges_indices.type(torch.float64)
         node_indices = self.node_indices_template \
             .repeat(batch_size).reshape(batch_size, key_len, 1) \
             .repeat(1, 1, edges_indices.shape[-1])
@@ -73,7 +73,7 @@ if __name__ == '__main__':
     # plt.imshow(mask.numpy(), cmap='Greys', interpolation='nearest')
     #
     # plt.show()
-    self_attention_layer = TemporalSelfAttentionEdgeIndexCreatorLayer(512, 4, 8)
+    self_attention_layer = TemporalSelfAttentionEdgeIndexCreatorLayer(512, 4, 8, num_points=512, device=device)
     edge_index = self_attention_layer.forward(key, query, mask)
-
+    edge_index.backward()
     print(edge_index.shape)
