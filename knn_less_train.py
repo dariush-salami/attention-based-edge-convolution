@@ -33,7 +33,6 @@ parser.add_argument('--dataset', default='data/primary_32_f_32_p_without_outlier
 parser.add_argument('--num_classes', type=int, default=21, help='Number of classes. [default: 21]')
 parser.add_argument('--num_points', type=int, default=1024, help='Number of points per gesture. [default: 1024]')
 parser.add_argument('--num_frames', type=int, default=32, help='Number of frames per gesture. [default: 32]')
-parser.add_argument('--export_onnx', type=bool, default=False, help='Export onnx model. [default: False]')
 parser.add_argument('--graph_creation_regularizer_coefficient', type=int, default=1,
                     help='Graph creation regularizer coefficient for temporal data. [default: 1]')
 parser.add_argument('--early_stopping', default='True', help='Whether to use early stopping [default: True]')
@@ -50,7 +49,6 @@ GPU_ID = FLAGS.gpu_id
 MAX_EPOCH = FLAGS.max_epoch
 MODEL = importlib.import_module(FLAGS.model)
 BATCH_SIZE = FLAGS.batch_size
-EXPORT_ONNX = FLAGS.export_onnx
 NUM_CLASSES = FLAGS.num_classes
 NUM_POINTS = FLAGS.num_points
 NUM_FRAMES = FLAGS.num_frames
@@ -138,12 +136,6 @@ def test(loader):
     correct = 0
     for data in loader:
         data = data.to(device)
-        if EXPORT_ONNX:
-            sample_out, _, _ = model(data)
-            torch.onnx.export(model,
-                              data,  # model input (or a tuple for multiple inputs)
-                              osp.join(LOG_DIR, 'model.onnx'),
-                              export_params=True)
         with torch.no_grad():
             out, _, _ = model(data)
             pred = out.max(dim=1)[1]
