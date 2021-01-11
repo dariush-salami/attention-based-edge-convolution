@@ -4,7 +4,7 @@ from torch.nn import Sequential as Seq, Linear as Lin, ReLU, BatchNorm1d as BN, 
 from torch_geometric.nn import global_max_pool, BatchNorm
 from custom_graph_convolution import CGCNConv
 from temporal_edgecnn.temporal_edgecnn import TemporalSelfAttentionDynamicEdgeConv, TemporalDynamicEdgeConv, \
-    AutomatedGraphDynamicEdgeConv
+    AutomatedGraphDynamicEdgeConv, SelfTemporalSelfAttentionDynamicEdgeConv
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
@@ -96,7 +96,7 @@ class STNkd(nn.Module):
 
 
 class Net(torch.nn.Module):
-    def __init__(self, out_channels, k=8, aggr='max'):
+    def __init__(self, out_channels, k=32, aggr='max'):
         super().__init__()
         self.stn = STN3d()
 
@@ -108,9 +108,14 @@ class Net(torch.nn.Module):
 #                                                    MLP([2 * 64, 128]),
 #                                                    64, 128, 8, k, aggr)
 
-        self.conv1 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
+        # self.conv1 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
+        #                                                   64, 4, k, aggr)
+        # self.conv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
+        #                                                   128, 8, k, aggr)
+
+        self.conv1 = SelfTemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
                                                           64, 4, k, aggr)
-        self.conv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
+        self.conv2 = SelfTemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
                                                           128, 8, k, aggr)
         self.lin1 = MLP([128 + 64, 1024])
 

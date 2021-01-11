@@ -258,6 +258,85 @@ class TemporalSelfAttentionDynamicEdgeConv(MessagePassing):
         return '{}(nn={}, k={})'.format(self.__class__.__name__, self.nn,
                                         self.k)
 
+class SelfTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
+    def __init__(self, nn: Callable, in_features: int, head_num: int, k: int, aggr: str = 'max',
+                 num_workers: int = 1, **kwargs):
+        super(SelfTemporalSelfAttentionDynamicEdgeConv,
+              self).__init__(aggr=aggr, flow='target_to_source', **kwargs)
+
+        if knn is None:
+            raise ImportError('`TemporalSelfAttentionDynamicEdgeConv` requires `torch-cluster`.')
+
+        self.nn = nn
+        self.multihead_attn = MultiHeadAttention(in_features, head_num)
+        self.k = k
+        self.num_workers = num_workers
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        reset(self.multihead_attn)
+        reset(self.nn)
+
+    def forward(
+            self, x: Union[Tensor, PairTensor],
+            sequence_number: Union[Tensor, PairTensor],
+            batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
+        num_frames = len(np.unique(sequence_number.cpu().round().numpy()))
+        batch_size = int(np.max(batch.cpu().numpy())) + 1
+        seq_length = num_frames
+        num_points = len(x)//(seq_length*batch_size)
+        """"""
+        x_reshape = x.reshape([batch_size, seq_length, num_points, -1])
+        if isinstance(x, Tensor):
+            x: PairTensor = (torch.cat([x_reshape[:, :-1, :, :].repeat_interleave(2, dim=1),
+                                           x_reshape[:, -1:, :, :]], dim=1)
+                             .reshape([-1, x.shape[1]]), x)
+        assert x[0].dim() == 2, \
+            'Static graphs not supported in `TemporalSelfAttentionDynamicEdgeConv`.'
+
+        b: PairOptTensor = (None, None)
+        if isinstance(batch, Tensor):
+            # b = (batch, batch)
+            b_list = [(batch * num_frames + sequence_number - 1).long(),
+                      (batch * num_frames + sequence_number - 1).long()]
+            b_list[0] = b_list[0].reshape([batch_size, seq_length, num_points, 1])
+
+            b = (torch.cat([b_list[0][:, :1, :, :],
+                            b_list[0][:, 1:, :, :].repeat_interleave(2, dim=1)], dim=1)
+                 .reshape([-1]), b_list[1])
+        elif isinstance(batch, tuple):
+            assert batch is not None
+            b = (batch[0], batch[1])
+
+        edge_index = knn(x[0], x[1], self.k, b[0], b[1],
+                         num_workers=self.num_workers)
+
+        # propagate_type: (x: PairTensor)
+        return self.propagate(edge_index, x=x, size=None, batch=batch)
+
+    def message(self, x_i: Tensor, x_j: Tensor) -> Tensor:
+        return self.nn(torch.cat([x_i, x_j - x_i], dim=-1))
+
+    def aggregate(self, inputs: Tensor, index: Tensor,
+                  batch: Tensor,
+                  ptr: Optional[Tensor] = None,
+                  dim_size: Optional[int] = None) -> Tensor:
+        original_shape = inputs.shape
+        # We assume K is fixed and the index tensor is sorted!
+        attention_input_shape = list([int(original_shape[0] / self.k)]) + list(original_shape)
+        attention_input_shape[1] = self.k
+        self_attention_input = inputs.reshape(attention_input_shape)
+        attn_output = self.multihead_attn(self_attention_input, self_attention_input, self_attention_input)
+        attn_output = attn_output.reshape(original_shape)
+        # Apply attention mechanism
+        return scatter(attn_output, index, dim=self.node_dim, dim_size=dim_size,
+                       reduce=self.aggr)
+
+    def __repr__(self):
+        return '{}(nn={}, k={})'.format(self.__class__.__name__, self.nn,
+                                        self.k)
+
+
 
 class AutomatedGraphDynamicEdgeConv(MessagePassing):
     def __init__(self, nn_before_graph_creation: Union[Callable, None], nn: Callable, graph_creation_in_features: int,

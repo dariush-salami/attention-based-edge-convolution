@@ -171,7 +171,7 @@ class MMNISTTransformer(object):
         x_data = torch.tensor(np.array(x_data).reshape(-1, 4)).to(data.x.device)
         y_data = torch.tensor(np.array(y_data).reshape(-1, 4)).to(data.x.device)
         batch = torch.tensor(
-            np.array(list(range(32))).reshape(-1, 1).repeat((self.seq_length // 2) * self.num_points)).to(data.x.device)
+            np.array(list(range(self.batch_size))).reshape(-1, 1).repeat((self.seq_length // 2) * self.num_points)).to(data.x.device)
         data.x = x_data
         data.y = y_data
         data.pos = x_data[:, 1:4]
