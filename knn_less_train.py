@@ -118,7 +118,7 @@ def train(epoch_num):
                 log_tensor('last_batch_{}_edge_index'.format(index + 1), destination_seq_number, epoch_num)
         nll_loss = F.nll_loss(out, data.y.squeeze())
         regularizer_loss = GRAPH_CREATION_REGULARIZER_COEFFICIENT * graph_creation_regularizer_loss
-        aggregated_loss = nll_loss + regularizer_loss
+        aggregated_loss = nll_loss
         aggregated_loss.backward()
         total_loss += aggregated_loss.item() * data.num_graphs
         total_nll_loss += nll_loss * data.num_graphs
