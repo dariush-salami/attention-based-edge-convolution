@@ -10,12 +10,14 @@ import argparse
 import sys
 from utils.augmentation_transformer import AugmentationTransformer
 from torch.utils.tensorboard import SummaryWriter
+import structlog
 
 BASE_DIR = osp.dirname(osp.abspath(__file__))
 ROOT_DIR = BASE_DIR
 sys.path.append(BASE_DIR)
 sys.path.append(osp.join(ROOT_DIR, 'models'))
-
+structlog.configure(logger_factory=structlog.ReturnLoggerFactory())
+structured_logger = structlog.get_logger()
 
 parser = argparse.ArgumentParser(description='Configurations')
 parser.add_argument('--model', type=str, default='knn_less_modified_edgecnn',
@@ -26,7 +28,8 @@ parser.add_argument('--t', default=2, help='Number of future frames to look at [
 parser.add_argument('--max_epoch', type=int, default=1000, help='Epoch to run [default: 251]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
-parser.add_argument('--dataset', default='data/primary_32_f_32_p_without_outlier_removal', help='Dataset path. [default: data/pantomime]')
+parser.add_argument('--dataset', default='data/primary_32_f_32_p_without_outlier_removal',
+                    help='Dataset path. [default: data/pantomime]')
 parser.add_argument('--num_class', type=int, default=21, help='Number of classes. [default: 21]')
 parser.add_argument('--graph_creation_regularizer_coefficient', type=int, default=1,
                     help='Graph creation regularizer coefficient for temporal data. [default: 1]')
@@ -56,6 +59,7 @@ if not osp.exists(LOG_DIR):
 writer = SummaryWriter(LOG_DIR)
 LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
 LOG_FOUT.write(str(FLAGS) + '\n')
+LOG_TENSOR_FOUT = open(os.path.join(LOG_DIR, 'log_tensor_train.txt'), 'w')
 
 model_path = osp.join(LOG_DIR, 'model.pth')
 
@@ -65,6 +69,11 @@ def log_string(out_str):
     LOG_FOUT.flush()
     print(out_str)
     sys.stdout.flush()
+
+
+def log_tensor(key, out_tensor, epoch):
+    LOG_TENSOR_FOUT.write(structured_logger.msg(key, valus=list(out_tensor.cpu().detach().numpy()), epoch=epoch))
+    LOG_TENSOR_FOUT.flush()
 
 
 device = torch.device('cuda:{}'.format(GPU_ID) if torch.cuda.is_available() else 'cpu')
@@ -102,7 +111,8 @@ def train(epoch_num):
             difference = torch.mean(difference)
             graph_creation_regularizer_loss += difference
             if batch_index == 0:
-                writer.add_histogram('last_batch_{}_edge_index'.format(index+1), destination_seq_number, epoch_num)
+                writer.add_histogram('last_batch_{}_edge_index'.format(index + 1), destination_seq_number, epoch_num)
+                log_tensor('last_batch_{}_edge_index'.format(index + 1), destination_seq_number, epoch_num)
         nll_loss = F.nll_loss(out, data.y.squeeze())
         regularizer_loss = GRAPH_CREATION_REGULARIZER_COEFFICIENT * graph_creation_regularizer_loss
         aggregated_loss = nll_loss + regularizer_loss
@@ -111,6 +121,7 @@ def train(epoch_num):
         total_nll_loss += nll_loss * data.num_graphs
         total_regularizer_loss += regularizer_loss * data.num_graphs
         optimizer.step()
+    scheduler.step()
     writer.add_scalar('nll_loss', total_nll_loss / len(train_dataset), epoch_num)
     writer.add_scalar('regularizer_loss', total_regularizer_loss / len(train_dataset), epoch_num)
     writer.add_scalar('average_loss', total_loss / len(train_dataset), epoch_num)

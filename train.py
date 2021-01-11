@@ -89,6 +89,7 @@ def train():
         loss.backward()
         total_loss += loss.item() * data.num_graphs
         optimizer.step()
+    scheduler.step()
     return total_loss / len(train_dataset)
 
 
