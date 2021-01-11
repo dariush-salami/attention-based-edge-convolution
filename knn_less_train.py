@@ -30,7 +30,9 @@ parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
 parser.add_argument('--dataset', default='data/primary_32_f_32_p_without_outlier_removal',
                     help='Dataset path. [default: data/pantomime]')
-parser.add_argument('--num_class', type=int, default=21, help='Number of classes. [default: 21]')
+parser.add_argument('--num_classes', type=int, default=21, help='Number of classes. [default: 21]')
+parser.add_argument('--num_points', type=int, default=1024, help='Number of points per gesture. [default: 1024]')
+parser.add_argument('--num_frames', type=int, default=32, help='Number of frames per gesture. [default: 32]')
 parser.add_argument('--graph_creation_regularizer_coefficient', type=int, default=1,
                     help='Graph creation regularizer coefficient for temporal data. [default: 1]')
 parser.add_argument('--early_stopping', default='True', help='Whether to use early stopping [default: True]')
@@ -47,7 +49,9 @@ GPU_ID = FLAGS.gpu_id
 MAX_EPOCH = FLAGS.max_epoch
 MODEL = importlib.import_module(FLAGS.model)
 BATCH_SIZE = FLAGS.batch_size
-NUM_CLASSES = FLAGS.num_class
+NUM_CLASSES = FLAGS.num_classes
+NUM_POINTS = FLAGS.num_points
+NUM_FRAMES = FLAGS.num_frames
 EARLY_STOPPING = FLAGS.early_stopping
 EARLY_STOPPING_PATIENCE = FLAGS.early_stopping_patience
 GRAPH_CREATION_REGULARIZER_COEFFICIENT = FLAGS.graph_creation_regularizer_coefficient
@@ -86,7 +90,7 @@ train_loader = DataLoader(
 test_loader = DataLoader(
     test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=6)
 
-model = MODEL.Net(NUM_CLASSES).to(device)
+model = MODEL.Net(NUM_CLASSES, BATCH_SIZE, NUM_POINTS, NUM_FRAMES, device).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 
@@ -97,11 +101,10 @@ def train(epoch_num):
     total_regularizer_loss = 0
     total_loss = 0
     for (batch_index, data) in enumerate(train_loader):
-        seq_numbers = data.x[:, 0].float()
         data = data.to(device)
         data = augmentation_transformer(data)
         optimizer.zero_grad()
-        out, edge_indices = model(data)
+        out, edge_indices, seq_numbers = model(data)
         graph_creation_regularizer_loss = 0
         for (index, edge_index) in enumerate(edge_indices):
             source_seq_number = seq_numbers[edge_index[0]]

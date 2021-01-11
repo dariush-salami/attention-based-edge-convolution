@@ -333,7 +333,7 @@ class AutomatedGraphDynamicEdgeConv(MessagePassing):
 class TemporalAutomatedGraphDynamicEdgeConv(MessagePassing):
     def __init__(self, nn_before_graph_creation: Union[Callable, None], nn: Callable, graph_creation_in_features: int,
                  in_features: int, head_num: int,
-                 k: int, aggr: str = 'max', t=5, **kwargs):
+                 k: int, batch_size, num_points, num_frames, device, aggr: str = 'max', t=5, **kwargs):
         super(TemporalAutomatedGraphDynamicEdgeConv,
               self).__init__(aggr=aggr, flow='target_to_source', **kwargs)
         assert t % 2 == 1, 't should be an odd number'
@@ -346,26 +346,8 @@ class TemporalAutomatedGraphDynamicEdgeConv(MessagePassing):
         self.nn = nn
         self.t = t
         self.multihead_attn = MultiHeadAttention(in_features, head_num)
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        reset(self.multihead_attn)
-        reset(self.nn)
-
-    def forward(
-            self, x: Union[Tensor, PairTensor],
-            sequence_number: Union[Tensor, PairTensor],
-            batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
-        num_frames = len(np.unique(sequence_number.cpu().numpy()))
-        batch_size = len(np.unique(batch.cpu().numpy()))
-        num_point = len(x) // batch_size
-        num_point_per_frame = num_point // num_frames
-        if self.nn_before_graph_creation:
-            x = self.nn_before_graph_creation(x)
-        transformed_sequence_number = self.nn_for_seq_num(sequence_number.reshape(-1, 1))
-        graph_creator_input = torch.cat((x, transformed_sequence_number), 1)
-        graph_creator_input = graph_creator_input.reshape(batch_size, -1, graph_creator_input.shape[-1])
-        mask = torch.zeros(num_point, num_point).to(x.device)
+        num_point_per_frame = num_points // num_frames
+        self.mask = torch.zeros(num_points, num_points).to(device)
         for frame in range(num_frames):
             start_row_index = (frame - self.t // 2) * num_point_per_frame
             if start_row_index < 0:
@@ -373,14 +355,33 @@ class TemporalAutomatedGraphDynamicEdgeConv(MessagePassing):
             end_row_index = (frame + self.t // 2) * num_point_per_frame
             start_col_index = frame * num_point_per_frame
             end_col_index = (frame + 1) * num_point_per_frame
-            mask[start_row_index:end_row_index, start_col_index:end_col_index] = 1
-        edge_index = self.graph_creator(graph_creator_input, graph_creator_input, mask)
-        point_index_corrector = torch.tensor([i * num_point for i in range(batch_size)]).to(x.device)
-        point_index_corrector = point_index_corrector\
-            .reshape(-1, 1).repeat(1, num_point * self.k)\
-            .reshape(batch_size, num_point * self.k, 1).repeat(1, 1, 2)\
+            self.mask[start_row_index:end_row_index, start_col_index:end_col_index] = 1
+        self.point_index_corrector = torch.tensor([i * num_points for i in range(batch_size)]).to(device)
+        self.point_index_corrector = self.point_index_corrector \
+            .reshape(-1, 1).repeat(1, num_points * self.k) \
+            .reshape(batch_size, num_points * self.k, 1).repeat(1, 1, 2) \
             .permute(0, 2, 1)
-        edge_index = (edge_index + point_index_corrector).permute(1, 0, 2).reshape(2, -1)
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        reset(self.multihead_attn)
+        reset(self.nn)
+        reset(self.nn_for_seq_num)
+        reset(self.nn_before_graph_creation)
+        reset(self.graph_creator)
+
+    def forward(
+            self, x: Union[Tensor, PairTensor],
+            sequence_number: Union[Tensor, PairTensor],
+            batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
+        batch_size = len(np.unique(batch.cpu().numpy()))
+        if self.nn_before_graph_creation:
+            x = self.nn_before_graph_creation(x)
+        transformed_sequence_number = self.nn_for_seq_num(sequence_number.reshape(-1, 1))
+        graph_creator_input = torch.cat((x, transformed_sequence_number), 1)
+        graph_creator_input = graph_creator_input.reshape(batch_size, -1, graph_creator_input.shape[-1])
+        edge_index = self.graph_creator(graph_creator_input, graph_creator_input, self.mask)
+        edge_index = (edge_index + self.point_index_corrector).permute(1, 0, 2).reshape(2, -1)
 
         # propagate_type: (x: PairTensor)
         return self.propagate(edge_index, x=x, size=None, batch=batch), edge_index

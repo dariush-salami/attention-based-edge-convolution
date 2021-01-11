@@ -95,16 +95,32 @@ class STNkd(nn.Module):
 
 
 class Net(torch.nn.Module):
-    def __init__(self, out_channels, k=8, aggr='max'):
+    def __init__(self, out_channels, batch_size, num_points, num_frames, device, k=8, aggr='max'):
         super().__init__()
         self.stn = STN3d()
         # self.fstn = STNkd(k=64)
-        self.conv1 = TemporalAutomatedGraphDynamicEdgeConv(MLP([3, 16]),
-                                                   MLP([2 * 16, 64, 64, 64]),
-                                                   16, 64, 4, k, aggr)
-        self.conv2 = TemporalAutomatedGraphDynamicEdgeConv(None,
-                                                   MLP([2 * 64, 128]),
-                                                   64, 128, 8, k, aggr)
+        self.conv1 = TemporalAutomatedGraphDynamicEdgeConv(nn_before_graph_creation=MLP([3, 16]),
+                                                           nn=MLP([2 * 16, 64, 64, 64]),
+                                                           graph_creation_in_features=16,
+                                                           in_features=64,
+                                                           head_num=4,
+                                                           k=k,
+                                                           batch_size=batch_size,
+                                                           num_points=num_points,
+                                                           num_frames=num_frames,
+                                                           device=device,
+                                                           aggr=aggr)
+        self.conv2 = TemporalAutomatedGraphDynamicEdgeConv(nn_before_graph_creation=None,
+                                                           nn=MLP([2 * 64, 128]),
+                                                           graph_creation_in_features=64,
+                                                           in_features=128,
+                                                           head_num=8,
+                                                           k=k,
+                                                           batch_size=batch_size,
+                                                           num_points=num_points,
+                                                           num_frames=num_frames,
+                                                           device=device,
+                                                           aggr=aggr)
 
         # self.conv1 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
         #                                                   64, 4, k, aggr)
@@ -115,6 +131,7 @@ class Net(torch.nn.Module):
         self.mlp = Seq(
             MLP([1024, 512]), Dropout(0.5), MLP([512, 256]), Dropout(0.5),
             Lin(256, out_channels))
+        self.num_frames = num_frames
 
     def forward(self, data):
         sequence_numbers, pos, batch = data.x[:, 0].float(), data.pos.float(), data.batch
@@ -130,4 +147,11 @@ class Net(torch.nn.Module):
         out = self.lin1(torch.cat([x1, x2], dim=1))
         out = global_max_pool(out, batch)
         out = self.mlp(out)
-        return F.log_softmax(out, dim=1), torch.stack((first_edge_index, second_edge_index), 0)
+        unscaled_sequence_numbers = (self.num_frames - 1) * ((
+                                                                     sequence_numbers - torch.min(sequence_numbers)
+                                                             ) / (
+                                                                     torch.max(sequence_numbers) - torch.min(
+                                                                 sequence_numbers)
+                                                             )) + 1
+        return F.log_softmax(out, dim=1), torch.stack((first_edge_index, second_edge_index),
+                                                      0), unscaled_sequence_numbers
