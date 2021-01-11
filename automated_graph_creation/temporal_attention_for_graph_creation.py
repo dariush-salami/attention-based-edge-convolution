@@ -14,8 +14,8 @@ class TemporalSelfAttentionEdgeIndexCreatorLayer(nn.Module):
         assert (embed_size % heads == 0), 'Embedding size needs to be divisible by heads'
         assert (number_of_edges % heads == 0), 'The number of edges needs to be divisible by heads'
 
-        self.keys = nn.Linear(self.head_dim, self.head_dim, bias=False)
-        self.queries = nn.Linear(self.head_dim, self.head_dim, bias=False)
+        self.keys = nn.Linear(self.head_dim, self.head_dim, bias=False).to(device)
+        self.queries = nn.Linear(self.head_dim, self.head_dim, bias=False).to(device)
         self.node_indices_template = torch.tensor(range(num_points)).to(device)
 
     def forward(self, keys, query, mask=None):
@@ -40,8 +40,7 @@ class TemporalSelfAttentionEdgeIndexCreatorLayer(nn.Module):
 
         node_indices = self.node_indices_template \
             .repeat(batch_size).reshape(batch_size, key_len, 1) \
-            .repeat(1, 1, edges_indices.shape[-1]) \
-            .to(keys.device)
+            .repeat(1, 1, edges_indices.shape[-1])
 
         edges_indices = edges_indices.reshape(batch_size, -1)
         node_indices = node_indices.reshape(batch_size, -1)
