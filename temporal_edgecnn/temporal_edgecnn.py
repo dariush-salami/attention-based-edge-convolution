@@ -390,7 +390,7 @@ class TemporalAutomatedGraphDynamicEdgeConv(MessagePassing):
             edge_index = (edge_index + self.point_index_corrector).permute(1, 0, 2).reshape(2, -1)
 
         # propagate_type: (x: PairTensor)
-        return self.propagate(edge_index, x=x, size=None, batch=batch), edge_index
+        return self.propagate(edge_index.type(torch.long), x=x, size=None, batch=batch), edge_index
 
     def message(self, x_i: Tensor, x_j: Tensor) -> Tensor:
         return self.nn(torch.cat([x_i, x_j - x_i], dim=-1))
