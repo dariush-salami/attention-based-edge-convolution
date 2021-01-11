@@ -361,6 +361,7 @@ class TemporalAutomatedGraphDynamicEdgeConv(MessagePassing):
             .reshape(-1, 1).repeat(1, num_points * self.k) \
             .reshape(batch_size, num_points * self.k, 1).repeat(1, 1, 2) \
             .permute(0, 2, 1)
+        self.batch_size = batch_size
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -381,7 +382,11 @@ class TemporalAutomatedGraphDynamicEdgeConv(MessagePassing):
         graph_creator_input = torch.cat((x, transformed_sequence_number), 1)
         graph_creator_input = graph_creator_input.reshape(batch_size, -1, graph_creator_input.shape[-1])
         edge_index = self.graph_creator(graph_creator_input, graph_creator_input, self.mask)
-        edge_index = (edge_index + self.point_index_corrector).permute(1, 0, 2).reshape(2, -1)
+        # We're in the last batch of the epoch
+        if self.batch_size != batch_size:
+            edge_index = (edge_index + self.point_index_corrector[:batch_size, :, :]).permute(1, 0, 2).reshape(2, -1)
+        else:
+            edge_index = (edge_index + self.point_index_corrector).permute(1, 0, 2).reshape(2, -1)
 
         # propagate_type: (x: PairTensor)
         return self.propagate(edge_index, x=x, size=None, batch=batch), edge_index
