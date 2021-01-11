@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 
 class TemporalSelfAttentionEdgeIndexCreatorLayer(nn.Module):
-    def __init__(self, embed_size, heads, number_of_edges):
+    def __init__(self, embed_size, heads, number_of_edges, num_points, device):
         super(TemporalSelfAttentionEdgeIndexCreatorLayer, self).__init__()
         self.embed_size = embed_size
         self.heads = heads
@@ -16,6 +16,7 @@ class TemporalSelfAttentionEdgeIndexCreatorLayer(nn.Module):
 
         self.keys = nn.Linear(self.head_dim, self.head_dim, bias=False)
         self.queries = nn.Linear(self.head_dim, self.head_dim, bias=False)
+        self.node_indices_template = torch.tensor(range(num_points)).to(device)
 
     def forward(self, keys, query, mask=None):
         batch_size = query.shape[0]
@@ -35,11 +36,9 @@ class TemporalSelfAttentionEdgeIndexCreatorLayer(nn.Module):
             normalized_energy = normalized_energy.masked_fill(mask == 0, float("-1e20"))
         attention = torch.softmax(normalized_energy, dim=2)
         edges_indices = torch.sort(
-            torch.topk(attention, self.head_edges * self.heads, 2)[1].reshape(batch_size, key_len,
-                                                                                                 -1).to(keys.device),
-            2)[0]
+            torch.topk(attention, self.head_edges * self.heads, 2)[1].reshape(batch_size, key_len, -1), 2)[0]
 
-        node_indices = torch.tensor(range(key_len)) \
+        node_indices = self.node_indices_template \
             .repeat(batch_size).reshape(batch_size, key_len, 1) \
             .repeat(1, 1, edges_indices.shape[-1]) \
             .to(keys.device)
@@ -50,7 +49,7 @@ class TemporalSelfAttentionEdgeIndexCreatorLayer(nn.Module):
         edge_index = torch.stack([
             torch.cat((i[0].reshape(-1, 1), i[1].reshape(-1, 1)), dim=1).permute(1, 0)
             for i in zip(*(node_indices, edges_indices))
-        ]).to(keys.device)
+        ])
         return edge_index
 
 

@@ -298,9 +298,9 @@ class AutomatedGraphDynamicEdgeConv(MessagePassing):
         graph_creator_input = x.reshape(batch_size, -1, x.shape[-1])
         edge_index = self.graph_creator(graph_creator_input, graph_creator_input)
         point_index_corrector = torch.tensor([i * num_point for i in range(batch_size)]).to(x.device)
-        point_index_corrector = point_index_corrector\
-            .reshape(-1, 1).repeat(1, num_point * self.k)\
-            .reshape(batch_size, num_point * self.k, 1).repeat(1, 1, 2)\
+        point_index_corrector = point_index_corrector \
+            .reshape(-1, 1).repeat(1, num_point * self.k) \
+            .reshape(batch_size, num_point * self.k, 1).repeat(1, 1, 2) \
             .permute(0, 2, 1)
         edge_index = (edge_index + point_index_corrector).permute(1, 0, 2).reshape(2, -1)
 
@@ -340,7 +340,8 @@ class TemporalAutomatedGraphDynamicEdgeConv(MessagePassing):
         if knn is None:
             raise ImportError('`TemporalAutomatedGraphDynamicEdgeConv` requires `torch-cluster`.')
         self.k = k
-        self.graph_creator = TemporalSelfAttentionEdgeIndexCreatorLayer(graph_creation_in_features * 2, head_num, k)
+        self.graph_creator = TemporalSelfAttentionEdgeIndexCreatorLayer(graph_creation_in_features * 2, head_num, k,
+                                                                        num_points=num_points, device=device)
         self.nn_before_graph_creation = nn_before_graph_creation
         self.nn_for_seq_num = MLP([1, graph_creation_in_features])
         self.nn = nn
