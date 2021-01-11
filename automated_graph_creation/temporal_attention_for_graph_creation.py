@@ -17,6 +17,7 @@ class TemporalSelfAttentionEdgeIndexCreatorLayer(nn.Module):
         self.keys = nn.Linear(self.head_dim, self.head_dim, bias=False).to(device)
         self.queries = nn.Linear(self.head_dim, self.head_dim, bias=False).to(device)
         self.node_indices_template = torch.tensor(range(num_points)).to(device)
+        print('TemporalSelfAttentionEdgeIndexCreatorLayer key weights are on {}'.format(self.keys.weight.device))
 
     def forward(self, keys, query, mask=None):
         batch_size = query.shape[0]
