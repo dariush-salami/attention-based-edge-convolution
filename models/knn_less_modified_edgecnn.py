@@ -118,6 +118,8 @@ class Net(torch.nn.Module):
 
     def forward(self, data):
         sequence_numbers, pos, batch = data.x[:, 0].float(), data.pos.float(), data.batch
+        sequence_numbers -= torch.min(sequence_numbers)
+        sequence_numbers /= torch.max(sequence_numbers)
         pos = pos.reshape(len(torch.unique(data.batch)), -1, 3).transpose(2, 1)
         trans = self.stn(pos)
         pos = pos.transpose(2, 1)

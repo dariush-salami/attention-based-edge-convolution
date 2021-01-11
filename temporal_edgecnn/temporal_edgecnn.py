@@ -357,15 +357,12 @@ class TemporalAutomatedGraphDynamicEdgeConv(MessagePassing):
             sequence_number: Union[Tensor, PairTensor],
             batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
         num_frames = len(np.unique(sequence_number.cpu().round().numpy()))
-        normalized_sequence_number = sequence_number.clone().to(sequence_number.device)
-        normalized_sequence_number -= torch.min(normalized_sequence_number)
-        normalized_sequence_number /= torch.max(normalized_sequence_number)
         batch_size = len(np.unique(batch.cpu().numpy()))
         num_point = len(x) // batch_size
         num_point_per_frame = num_point // num_frames
         if self.nn_before_graph_creation:
             x = self.nn_before_graph_creation(x)
-        transformed_sequence_number = self.nn_for_seq_num(normalized_sequence_number.reshape(-1, 1))
+        transformed_sequence_number = self.nn_for_seq_num(sequence_number.reshape(-1, 1))
         graph_creator_input = torch.cat((x, transformed_sequence_number), 1)
         graph_creator_input = graph_creator_input.reshape(batch_size, -1, graph_creator_input.shape[-1])
         mask = torch.zeros(num_point, num_point).to(x.device)

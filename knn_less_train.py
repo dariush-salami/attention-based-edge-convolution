@@ -90,6 +90,8 @@ model = MODEL.Net(NUM_CLASSES).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 
+for param in model.named_parameters():
+    print('name: {} dimension: {}, grad: {}'.format(param[0], param[1].shape, param[1].grad))
 
 def train(epoch_num):
     model.train()
