@@ -90,6 +90,8 @@ model = MODEL.Net(NUM_CLASSES).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 
+for param in model.named_parameters():
+    print('name: {} dimension: {}, grad: {}'.format(param[0], param[1].shape, param[1].grad))
 
 def train(epoch_num):
     model.train()
@@ -149,8 +151,10 @@ for epoch in range(1, MAX_EPOCH):
     loss = train(epoch)
     current_acc = test(test_loader)
     for name, param in model.named_parameters():
-        if 'bn' not in name and torch.is_tensor(param.grad):
-            writer.add_histogram(name, param.grad, epoch)
+        if 'bn' not in name:
+            if torch.is_tensor(param.grad):
+                writer.add_histogram(name, param.grad, epoch)
+            writer.add_histogram('{}.grad'.format(name), param, epoch)
     if current_acc > best_acc:
         log_string('Epoch {:03d}, Train Loss: {:.4f}, Test Accuracy: {:.4f}'.format(epoch, loss, current_acc))
         torch.save(model.cpu().state_dict(), model_path)  # saving model
