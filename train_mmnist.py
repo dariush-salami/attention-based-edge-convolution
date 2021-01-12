@@ -104,7 +104,7 @@ train_loader = DataLoader(
 test_loader = DataLoader(
     test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=6)
 
-model = MODEL.Net(3).to(device)
+model = MODEL.Net(128*3).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 ch = ChamferDistance()
@@ -149,7 +149,14 @@ def train():
         data = data.to(device)
         data = augmentation_transformer(data)
         optimizer.zero_grad()
-        out = model(data).float()
+        seq = []
+        input = data
+        for i in range(10):
+            out = model(input).unsqueeze(1)
+            seq.append(out)
+            input.x[:, 1:] = torch.cat([input.x[:, 1:].reshape([train_loader.batch_size, 10, -1])[:, 1:],
+                                        out], dim=1).view(-1, 3)
+        out = torch.cat(seq, dim=1).view(-1, 3)
         labels = data.y[:, 1:].float()
         loss, ch_loss, emd_loss = calc_loss(data, out, labels)
         loss.backward()
@@ -171,7 +178,14 @@ def test(loader):
     for data in loader:
         data = data.to(device)
         with torch.no_grad():
-            out = model(data)
+            seq = []
+            input = data
+            for i in range(10):
+                out = model(input).unsqueeze(1)
+                seq.append(out)
+                input.x[:, 1:] = torch.cat([input.x[:, 1:].reshape([train_loader.batch_size, 10, -1])[:, 1:],
+                                            out], dim=1).view(-1, 3)
+            out = torch.cat(seq, dim=1).view(-1, 3)
             labels = data.y[:, 1:]
             loss, ch_loss, emd_loss = calc_loss(data, out, labels)
             total_loss += loss.item() * data.num_graphs

@@ -96,7 +96,7 @@ class STNkd(nn.Module):
 
 
 class Net(torch.nn.Module):
-    def __init__(self, out_channels, k=32, aggr='max'):
+    def __init__(self, out_channels, k=8, aggr='max'):
         super().__init__()
         self.stn = STN3d()
 
@@ -123,7 +123,7 @@ class Net(torch.nn.Module):
             MLP([1024, 512]), Dropout(0.5), MLP([512, 256]), Dropout(0.5),
             Lin(256, out_channels))
 
-    def forward(self, data):
+    def encode(self, data):
         sequence_numbers, pos, batch = data.x[:, 0].float(), data.x[:, 1:].float(), data.batch
         pos = pos.reshape(len(torch.unique(data.batch)), -1, 3).transpose(2, 1)
         trans = self.stn(pos)
@@ -133,6 +133,16 @@ class Net(torch.nn.Module):
         x1 = self.conv1(pos, sequence_numbers, batch)
         x2 = self.conv2(x1, sequence_numbers, batch)
         out = self.lin1(torch.cat([x1, x2], dim=1))
-#         out = global_max_pool(out, batch)
-        out = self.mlp(out)
+        # return out
+        return global_max_pool(out, batch)
+
+    def decode(self, encoding):
+        return self.mlp(encoding)
+
+    def forward(self, data):
+
+        encoding = self.encode(data)
+
+        out = self.decode(encoding)
+
         return out

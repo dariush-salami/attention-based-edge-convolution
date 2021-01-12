@@ -230,8 +230,7 @@ class TemporalSelfAttentionDynamicEdgeConv(MessagePassing):
             assert batch is not None
             b = (batch[0], batch[1])
 
-        edge_index = knn(x[0], x[1], self.k, b[0], b[1],
-                         num_workers=self.num_workers)
+        edge_index = knn(x[0], x[1], self.k, b[0], b[1])
 
         # propagate_type: (x: PairTensor)
         return self.propagate(edge_index, x=x, size=None, batch=batch)
@@ -308,8 +307,7 @@ class SelfTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
             assert batch is not None
             b = (batch[0], batch[1])
 
-        edge_index = knn(x[0], x[1], self.k, b[0], b[1],
-                         num_workers=self.num_workers)
+        edge_index = knn(x[0], x[1], self.k, b[0], b[1])
 
         # propagate_type: (x: PairTensor)
         return self.propagate(edge_index, x=x, size=None, batch=batch)
