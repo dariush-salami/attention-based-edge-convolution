@@ -12,6 +12,7 @@ import sys
 from utils.augmentation_transformer import MMNISTTransformer
 from chamfer_distance import ChamferDistance
 from emd import EarthMoverDistance
+from tqdm import tqdm
 
 BASE_DIR = osp.dirname(osp.abspath(__file__))
 ROOT_DIR = BASE_DIR
@@ -21,14 +22,14 @@ sys.path.append(osp.join(ROOT_DIR, 'models'))
 parser = argparse.ArgumentParser(description='Configurations')
 parser.add_argument('--model', type=str, default='modified_edgecnn_regression',
                     help='Model to run on the data (stgcnn, dgcnn, tgcnn, modified_edgecnn) [default: modified_edgecnn]')
-parser.add_argument('--log_dir', default='temporal_regression_mmnist_straight', help='Log dir [default: stgcnn]')
+parser.add_argument('--log_dir', default='Self_temporal_regression_mmnist_step', help='Log dir [default: stgcnn]')
 parser.add_argument('--k', default=5, help='Number of nearest points [default: 5]')
 parser.add_argument('--t', default=2, help='Number of future frames to look at [default: 5]')
 parser.add_argument('--alpha', type=float, default=1.0, help='Weigh on CD loss [default: 1.0]')
 parser.add_argument('--beta', type=float, default=1.0, help='Weigh on EMD loss [default: 1.0]')
 parser.add_argument('--max_epoch', type=int, default=100, help='Epoch to run [default: 251]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
-parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
+parser.add_argument('--batch_size', type=int, default=10, help='Batch size [default: 32]')
 parser.add_argument('--dataset', default='data/mmnist', help='Dataset path. [default: data/pantomime]')
 parser.add_argument('--early_stopping', default='True', help='Whether to use early stopping [default: True]')
 parser.add_argument('--early_stopping_patience', type=int, default=100,
@@ -87,7 +88,7 @@ def preprocess_validation(valid):
 
     return [Data(x=i, y=j) for i, j in zip(x, y)]
 
-device = torch.device('cuda:{}'.format(GPU_ID) if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 path = osp.join(osp.dirname(osp.realpath(__file__)), DATASET)
 
 train_dataset = MMNISTDataset(path, True)
@@ -145,20 +146,38 @@ def train():
     total_ch_loss = 0
     total_em_loss = 0
     step = 0
-    for data in train_loader:
+    for data in tqdm(train_loader):
         data = data.to(device)
         data = augmentation_transformer(data)
-        optimizer.zero_grad()
-        seq = []
-        input = data
-        for i in range(10):
-            out = model(input).unsqueeze(1)
-            seq.append(out)
-            input.x[:, 1:] = torch.cat([input.x[:, 1:].reshape([train_loader.batch_size, 10, -1])[:, 1:],
-                                        out], dim=1).view(-1, 3)
-        out = torch.cat(seq, dim=1).view(-1, 3)
         labels = data.y[:, 1:].float()
-        loss, ch_loss, emd_loss = calc_loss(data, out, labels)
+        labels = labels.reshape((data.num_graphs, 10, data.num_nodes // (data.num_graphs * 10), 3))
+        optimizer.zero_grad()
+        loss = ch_loss = emd_loss = 0
+        input = data
+        input.x = input.x.float()
+        for t in range(10):
+            
+            pred_frame = model(input).reshape((data.num_graphs, data.num_nodes // (data.num_graphs * 10), 3))
+            frame = labels[:, t, :, :]
+            
+            dist_forward, dist_backward = ch(pred_frame, frame)
+            ch_dist = (torch.mean(dist_forward)) + (torch.mean(dist_backward))
+            ch_loss = ch_loss + ch_dist
+
+            emd_dist = torch.mean(emd(pred_frame, frame, transpose=False))
+            emd_loss = emd_loss + emd_dist
+            loss = loss + (CD_ALPHA*ch_dist) + (EMD_BETA*emd_dist)
+            
+            pred_frame = torch.cat([torch.tensor([t + 1 + 10]).float().to(device).reshape(1, 1, 1)
+                                   .repeat([data.num_graphs, data.num_nodes // (data.num_graphs * 10), 1]), pred_frame],
+                                   dim=-1)
+            
+            input.x = torch.cat([input.x.reshape([train_loader.batch_size, 10, 128, -1])[:, 1:],
+                                        pred_frame.unsqueeze(1).detach()], dim=1).view(-1, 4)
+        loss = loss/ 10
+        ch_dist = ch_dist / 10
+        emd_dist = emd_dist / 1280
+        
         loss.backward()
         
         total_loss += loss.item() * data.num_graphs
@@ -175,7 +194,7 @@ def test(loader):
     total_loss = 0
     total_ch_loss = 0
     total_em_loss = 0
-    for data in loader:
+    for data in tqdm(loader):
         data = data.to(device)
         with torch.no_grad():
             seq = []
@@ -208,6 +227,7 @@ last_improvement = 0
 
 for epoch in range(1, MAX_EPOCH):
 #     current_loss, current_ch_loss, current_emd_loss = test(test_loader)
+    print(current_loss, current_ch_loss, current_emd_loss)
     loss,_,_ = train()
     scheduler.step()
     current_loss, current_ch_loss, current_emd_loss = test(test_loader)
