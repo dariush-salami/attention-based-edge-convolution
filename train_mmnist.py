@@ -150,14 +150,14 @@ def train():
         data = data.to(device)
         data = augmentation_transformer(data)
         labels = data.y[:, 1:].float()
-        labels = labels.reshape((data.num_graphs, 10, data.num_nodes // (data.num_graphs * 10), 3))
+        labels = labels.reshape((-1, 10, 128, 3))
         optimizer.zero_grad()
         loss = ch_loss = emd_loss = 0
         input = data
         input.x = input.x.float()
         for t in range(10):
             
-            pred_frame = model(input).reshape((data.num_graphs, data.num_nodes // (data.num_graphs * 10), 3))
+            pred_frame = model(input).reshape((-1, 128, 3))
             frame = labels[:, t, :, :]
             
             dist_forward, dist_backward = ch(pred_frame, frame)
@@ -169,10 +169,10 @@ def train():
             loss = loss + (CD_ALPHA*ch_dist) + (EMD_BETA*emd_dist)
             
             pred_frame = torch.cat([torch.tensor([t + 1 + 10]).float().to(device).reshape(1, 1, 1)
-                                   .repeat([data.num_graphs, data.num_nodes // (data.num_graphs * 10), 1]), pred_frame],
+                                   .repeat([pred_frame.shape[0], 128, 1]), pred_frame],
                                    dim=-1)
             
-            input.x = torch.cat([input.x.reshape([train_loader.batch_size, 10, 128, -1])[:, 1:],
+            input.x = torch.cat([input.x.reshape([-1, 10, 128, 4])[:, 1:],
                                         pred_frame.unsqueeze(1).detach()], dim=1).view(-1, 4)
         loss = loss/ 10
         ch_dist = ch_dist / 10
@@ -202,7 +202,7 @@ def test(loader):
             for i in range(10):
                 out = model(input).unsqueeze(1)
                 seq.append(out)
-                input.x[:, 1:] = torch.cat([input.x[:, 1:].reshape([train_loader.batch_size, 10, -1])[:, 1:],
+                input.x[:, 1:] = torch.cat([input.x[:, 1:].reshape([-1, 10, 128*3])[:, 1:],
                                             out], dim=1).view(-1, 3)
             out = torch.cat(seq, dim=1).view(-1, 3)
             labels = data.y[:, 1:]
@@ -226,7 +226,7 @@ current_ch_loss = 0
 last_improvement = 0
 
 for epoch in range(1, MAX_EPOCH):
-#     current_loss, current_ch_loss, current_emd_loss = test(test_loader)
+    current_loss, current_ch_loss, current_emd_loss = test(test_loader)
     print(current_loss, current_ch_loss, current_emd_loss)
     loss,_,_ = train()
     scheduler.step()
