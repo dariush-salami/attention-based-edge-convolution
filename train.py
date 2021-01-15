@@ -9,6 +9,8 @@ import torch.nn.functional as F
 import argparse
 import sys
 from utils.augmentation_transformer import AugmentationTransformer
+import torch_geometric.transforms as Transformers
+
 
 BASE_DIR = osp.dirname(osp.abspath(__file__))
 ROOT_DIR = BASE_DIR
@@ -19,12 +21,13 @@ parser = argparse.ArgumentParser(description='Configurations')
 parser.add_argument('--model', type=str, default='modified_edgecnn',
                     help='Model to run on the data (stgcnn, dgcnn, tgcnn, modified_edgecnn) [default: modified_edgecnn]')
 parser.add_argument('--log_dir', default='stgcnn', help='Log dir [default: stgcnn]')
-parser.add_argument('--k', default=5, help='Number of nearest points [default: 5]')
+parser.add_argument('--k', default=4, help='Number of nearest points [default: 5]')
 parser.add_argument('--t', default=2, help='Number of future frames to look at [default: 5]')
 parser.add_argument('--max_epoch', type=int, default=1000, help='Epoch to run [default: 251]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
-parser.add_argument('--dataset', default='data/pantomime', help='Dataset path. [default: data/pantomime]')
+parser.add_argument('--dataset', default='data/primary_32_f_32_p_without_outlier_removal', help='Dataset path. [default: data/primary_32_f_32_p_without_outlier_removal]')
+parser.add_argument('--spatio_temporal_factor', type=float, default=0.25, help='Spatio-temporal factor. [default: 0.25]')
 parser.add_argument('--num_class', type=int, default=21, help='Number of classes. [default: 21]')
 parser.add_argument('--early_stopping', default='True', help='Whether to use early stopping [default: True]')
 parser.add_argument('--early_stopping_patience', type=int, default=100,
@@ -43,6 +46,7 @@ BATCH_SIZE = FLAGS.batch_size
 NUM_CLASSES = FLAGS.num_class
 EARLY_STOPPING = FLAGS.early_stopping
 EARLY_STOPPING_PATIENCE = FLAGS.early_stopping_patience
+SPATIO_TEMPORAL_FACTOR = FLAGS.spatio_temporal_factor
 
 if not osp.exists(LOG_DIR):
     print('Creating the model checkpoint directory at {}'.format(LOG_DIR))
@@ -64,14 +68,15 @@ def log_string(out_str):
 device = torch.device('cuda:{}'.format(GPU_ID) if torch.cuda.is_available() else 'cpu')
 path = osp.join(osp.dirname(osp.realpath(__file__)), DATASET)
 augmentation_transformer = AugmentationTransformer(False, BATCH_SIZE)
-train_dataset = PantomimeDataset(path, True)
-test_dataset = PantomimeDataset(path, False)
+pre_transform = Transformers.NormalizeScale()
+train_dataset = PantomimeDataset(path, True, pre_transform=pre_transform)
+test_dataset = PantomimeDataset(path, False, pre_transform=pre_transform)
 train_loader = DataLoader(
     train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=6)
 test_loader = DataLoader(
     test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=6)
 
-model = MODEL.Net(NUM_CLASSES).to(device)
+model = MODEL.Net(NUM_CLASSES, k=K, spatio_temporal_factor=SPATIO_TEMPORAL_FACTOR).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 

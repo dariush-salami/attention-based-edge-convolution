@@ -4,7 +4,7 @@ from torch.nn import Sequential as Seq, Linear as Lin, ReLU, BatchNorm1d as BN, 
 from torch_geometric.nn import global_max_pool, BatchNorm
 from custom_graph_convolution import CGCNConv
 from temporal_edgecnn.temporal_edgecnn import TemporalSelfAttentionDynamicEdgeConv, TemporalDynamicEdgeConv, \
-    AutomatedGraphDynamicEdgeConv
+    AutomatedGraphDynamicEdgeConv, GeneralizedTemporalSelfAttentionDynamicEdgeConv
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
@@ -96,7 +96,7 @@ class STNkd(nn.Module):
 
 
 class Net(torch.nn.Module):
-    def __init__(self, out_channels, k=8, aggr='max'):
+    def __init__(self, out_channels, k=4, spatio_temporal_factor=0, aggr='max'):
         super().__init__()
         self.stn = STN3d()
         # self.fstn = STNkd(k=64)
@@ -107,10 +107,18 @@ class Net(torch.nn.Module):
         #                                            MLP([2 * 64, 128]),
         #                                            64, 128, 8, k, aggr)
 
-        self.conv1 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
-                                                          64, 4, k, aggr)
-        self.conv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
-                                                          128, 8, k, aggr)
+        # self.conv1 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
+        #                                                   64, 4, k, aggr)
+        # self.conv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
+        #                                                   128, 8, k, aggr)
+
+        self.conv1 = GeneralizedTemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
+                                                                     64, 4, k,
+                                                                     spatio_temporal_factor=spatio_temporal_factor)
+        self.conv2 = GeneralizedTemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
+                                                                     128, 8, k,
+                                                                     spatio_temporal_factor=spatio_temporal_factor,
+                                                                     aggr=aggr)
         self.lin1 = MLP([128 + 64, 1024])
 
         self.mlp = Seq(
@@ -119,13 +127,15 @@ class Net(torch.nn.Module):
 
     def forward(self, data):
         sequence_numbers, pos, batch = data.x[:, 0].float(), data.pos.float(), data.batch
+        scaled_sequence_numbers = 2 * (sequence_numbers - sequence_numbers.min()) / (
+                    sequence_numbers.max() - sequence_numbers.min()) - 1
         pos = pos.reshape(len(torch.unique(data.batch)), -1, 3).transpose(2, 1)
         trans = self.stn(pos)
         pos = pos.transpose(2, 1)
         pos = torch.bmm(pos, trans)
         pos = pos.reshape(-1, 3)
-        x1 = self.conv1(pos, sequence_numbers, batch)
-        x2 = self.conv2(x1, sequence_numbers, batch)
+        x1 = self.conv1(pos, scaled_sequence_numbers, batch)
+        x2 = self.conv2(x1, scaled_sequence_numbers, batch)
         out = self.lin1(torch.cat([x1, x2], dim=1))
         out = global_max_pool(out, batch)
         out = self.mlp(out)

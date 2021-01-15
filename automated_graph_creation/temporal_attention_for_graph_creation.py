@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import matplotlib.pyplot as plt
 
 
 class TemporalSelfAttentionEdgeIndexCreatorLayer(nn.Module):
@@ -35,23 +34,23 @@ class TemporalSelfAttentionEdgeIndexCreatorLayer(nn.Module):
         if mask is not None:
             normalized_energy = normalized_energy.masked_fill(mask == 0, float("-1e20"))
         attention = torch.softmax(normalized_energy, dim=2)
-        attention = torch.topk(attention, self.head_edges * self.heads, 2)\
-            .indices\
-            .type(torch.float64)\
-            .requires_grad_(True)
-        edges_indices = torch.sort(attention, 2).values
-        node_indices = self.node_indices_template \
-            .repeat(batch_size).reshape(batch_size, key_len, 1) \
-            .repeat(1, 1, edges_indices.shape[-1])
-
-        edges_indices = edges_indices.reshape(batch_size, -1)
-        node_indices = node_indices.reshape(batch_size, -1)
-
-        edge_index = torch.stack([
-            torch.cat((i[0].reshape(-1, 1), i[1].reshape(-1, 1)), dim=1).permute(1, 0)
-            for i in zip(*(node_indices, edges_indices))
-        ])
-        return edge_index
+        # attention = torch.topk(attention, self.head_edges * self.heads, 2)\
+        #     .indices\
+        #     .type(torch.float64)\
+        #     .requires_grad_(True)
+        # edges_indices = torch.sort(attention, 2).values
+        # node_indices = self.node_indices_template \
+        #     .repeat(batch_size).reshape(batch_size, key_len, 1) \
+        #     .repeat(1, 1, edges_indices.shape[-1])
+        #
+        # edges_indices = edges_indices.reshape(batch_size, -1)
+        # node_indices = node_indices.reshape(batch_size, -1)
+        #
+        # edge_index = torch.stack([
+        #     torch.cat((i[0].reshape(-1, 1), i[1].reshape(-1, 1)), dim=1).permute(1, 0)
+        #     for i in zip(*(node_indices, edges_indices))
+        # ])
+        return attention
 
 
 if __name__ == '__main__':
@@ -77,5 +76,11 @@ if __name__ == '__main__':
     # plt.show()
     self_attention_layer = TemporalSelfAttentionEdgeIndexCreatorLayer(512, 4, 8, num_points=512, device=device)
     edge_index = self_attention_layer.forward(key, query, mask)
-    edge_index.backward()
-    print(edge_index.shape)
+    imaginary_loss = torch.sum(edge_index)
+    print('Before loss.backward()')
+    for name, param in self_attention_layer.named_parameters():
+        print('param: {}, grad: {}'.format(name, param.grad))
+    imaginary_loss.backward()
+    print('After loss.backward()')
+    for name, param in self_attention_layer.named_parameters():
+        print('param: {}, grad: {}'.format(name, param.grad))
