@@ -267,6 +267,26 @@ class TemporalSelfAttentionDynamicEdgeConv(MessagePassing):
                                         self.k)
 
 
+def make_proper_data(data, sequence_number, batch):
+    source, source_batch, target, target_batch = data, batch, data.clone(), None
+    index_mapper = torch.arange(0, len(data), device=data.device)
+    batch_size = len(torch.unique(batch))
+    frame_number = len(torch.unique(sequence_number))
+    point_number = len(data) // (batch_size * frame_number)
+    source_batch = (batch * frame_number + sequence_number - 1).long()
+    target_batch = source_batch.clone()
+    target = target.reshape(batch_size, frame_number, -1, data.shape[-1])
+    index_mapper = index_mapper.reshape(batch_size, frame_number, -1, 1)
+    target = target.repeat(frame_number, 1, 1, 1).reshape(batch_size, frame_number * frame_number, -1, data.shape[-1])
+    index_mapper = index_mapper.repeat(frame_number, 1, 1, 1).reshape(batch_size, frame_number * frame_number, -1, 1)
+    mask = torch.triu(torch.ones((frame_number, frame_number), device=data.device)).reshape(-1)
+    target = target[:, mask == 1]
+    index_mapper = index_mapper[:, mask == 1]
+    target_batch = target_batch.reshape(-1, 1).repeat(1, frame_number).reshape(batch_size, -1, point_number)
+    target_batch = target_batch[:, mask == 1]
+    return source, source_batch, target.reshape(-1, data.shape[-1]), target_batch.reshape(-1), index_mapper.reshape(-1)
+
+
 class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
     def __init__(self, nn: Callable, knn_input_features: int, attention_in_features: int, head_num: int, k: int, aggr: str = 'max',
                  num_workers: int = 1, spatio_temporal_factor: int = 0, **kwargs):
@@ -295,22 +315,16 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
         knn_input = torch.cat((x, sequence_number.reshape(-1, 1)), 1)
         knn_input = self.batch_norm_for_knn_input(knn_input)
         knn_input[:, 3] *= self.spatio_temporal_factor
+        source_data, source_batch, target_data, target_batch, index_mapper = make_proper_data(knn_input,
+                                                                                              sequence_number, batch)
         if isinstance(x, Tensor):
             x: PairTensor = (x, x)
-            knn_input = (knn_input, knn_input)
         assert x[0].dim() == 2, \
             'Static graphs not supported in `GeneralizedTemporalSelfAttentionDynamicEdgeConv`.'
 
-        b: PairOptTensor = (None, None)
-        if isinstance(batch, Tensor):
-            b = (batch, batch)
-        elif isinstance(batch, tuple):
-            assert batch is not None
-            b = (batch[0], batch[1])
-
-        edge_index = knn(knn_input[0], knn_input[1], self.k, b[0], b[1],
+        edge_index = knn(target_data, source_data, 2, target_batch, source_batch,
                          num_workers=self.num_workers)
-
+        edge_index[1] = index_mapper[edge_index[1]]
         # propagate_type: (x: PairTensor)
         return self.propagate(edge_index, x=x, size=None, batch=batch)
 
