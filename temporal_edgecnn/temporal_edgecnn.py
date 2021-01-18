@@ -268,7 +268,7 @@ class TemporalSelfAttentionDynamicEdgeConv(MessagePassing):
 
 
 class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
-    def __init__(self, nn: Callable, in_features: int, head_num: int, k: int, aggr: str = 'max',
+    def __init__(self, nn: Callable, knn_input_features: int, attention_in_features: int, head_num: int, k: int, aggr: str = 'max',
                  num_workers: int = 1, spatio_temporal_factor: int = 0, **kwargs):
         super(GeneralizedTemporalSelfAttentionDynamicEdgeConv,
               self).__init__(aggr=aggr, flow='target_to_source', **kwargs)
@@ -277,10 +277,11 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
             raise ImportError('`GeneralizedTemporalSelfAttentionDynamicEdgeConv` requires `torch-cluster`.')
 
         self.nn = nn
-        self.multihead_attn = MultiHeadAttention(in_features, head_num)
+        self.multihead_attn = MultiHeadAttention(attention_in_features, head_num)
         self.k = k
         self.num_workers = num_workers
         self.spatio_temporal_factor = spatio_temporal_factor
+        self.batch_norm_for_knn_input = BN(knn_input_features + 1)
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -291,8 +292,9 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
             self, x: Union[Tensor, PairTensor],
             sequence_number: Union[Tensor, PairTensor],
             batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
-        scaled_sequence_number = sequence_number * self.spatio_temporal_factor
-        knn_input = torch.cat((x, scaled_sequence_number.reshape(-1, 1)), 1)
+        knn_input = torch.cat((x, sequence_number.reshape(-1, 1)), 1)
+        knn_input = self.batch_norm_for_knn_input(knn_input)
+        knn_input[:, 3] *= self.spatio_temporal_factor
         if isinstance(x, Tensor):
             x: PairTensor = (x, x)
             knn_input = (knn_input, knn_input)
@@ -306,7 +308,7 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
             assert batch is not None
             b = (batch[0], batch[1])
 
-        edge_index = knn(x[0], x[1], self.k, b[0], b[1],
+        edge_index = knn(knn_input[0], knn_input[1], self.k, b[0], b[1],
                          num_workers=self.num_workers)
 
         # propagate_type: (x: PairTensor)
