@@ -279,7 +279,8 @@ def make_proper_data(data, sequence_number, batch):
     index_mapper = index_mapper.reshape(batch_size, frame_number, -1, 1)
     target = target.repeat(frame_number, 1, 1, 1).reshape(batch_size, frame_number * frame_number, -1, data.shape[-1])
     index_mapper = index_mapper.repeat(frame_number, 1, 1, 1).reshape(batch_size, frame_number * frame_number, -1, 1)
-    mask = torch.triu(torch.ones((frame_number, frame_number), device=data.device)).reshape(-1)
+    mask = torch.triu(torch.ones((frame_number, frame_number), device=data.device), diagonal=1).reshape(-1)
+    mask[-1] = 1
     target = target[:, mask == 1]
     index_mapper = index_mapper[:, mask == 1]
     target_batch = target_batch.reshape(-1, 1).repeat(1, frame_number).reshape(batch_size, -1, point_number)
