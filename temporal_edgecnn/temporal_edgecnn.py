@@ -269,7 +269,7 @@ class TemporalSelfAttentionDynamicEdgeConv(MessagePassing):
 
 class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
     def __init__(self, nn: Callable, in_features: int, head_num: int, k: int, aggr: str = 'max',
-                 num_workers: int = 1, spatio_temporal_factor: int=0, **kwargs):
+                 num_workers: int = 1, spatio_temporal_factor: int = 0, **kwargs):
         super(GeneralizedTemporalSelfAttentionDynamicEdgeConv,
               self).__init__(aggr=aggr, flow='target_to_source', **kwargs)
 
@@ -306,7 +306,7 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
             assert batch is not None
             b = (batch[0], batch[1])
 
-        edge_index = knn(knn_input[0], knn_input[1], self.k, b[0], b[1],
+        edge_index = knn(x[0], x[1], self.k, b[0], b[1],
                          num_workers=self.num_workers)
 
         # propagate_type: (x: PairTensor)
