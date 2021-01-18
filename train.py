@@ -28,7 +28,6 @@ parser.add_argument('--normalize_data', default=False, help='Normalize the point
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
 parser.add_argument('--dataset', default='data/primary_32_f_32_p_without_outlier_removal', help='Dataset path. [default: data/primary_32_f_32_p_without_outlier_removal]')
-parser.add_argument('--spatio_temporal_factor', type=float, default=0.25, help='Spatio-temporal factor. [default: 0.25]')
 parser.add_argument('--num_class', type=int, default=21, help='Number of classes. [default: 21]')
 parser.add_argument('--early_stopping', default='True', help='Whether to use early stopping [default: True]')
 parser.add_argument('--early_stopping_patience', type=int, default=100,
@@ -48,7 +47,6 @@ BATCH_SIZE = FLAGS.batch_size
 NUM_CLASSES = FLAGS.num_class
 EARLY_STOPPING = FLAGS.early_stopping
 EARLY_STOPPING_PATIENCE = FLAGS.early_stopping_patience
-SPATIO_TEMPORAL_FACTOR = FLAGS.spatio_temporal_factor
 
 if not osp.exists(LOG_DIR):
     print('Creating the model checkpoint directory at {}'.format(LOG_DIR))
@@ -84,7 +82,7 @@ train_loader = DataLoader(
 test_loader = DataLoader(
     test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=6)
 
-model = MODEL.Net(NUM_CLASSES, k=K, spatio_temporal_factor=SPATIO_TEMPORAL_FACTOR).to(device)
+model = MODEL.Net(NUM_CLASSES, k=K).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 

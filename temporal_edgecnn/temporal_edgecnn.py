@@ -289,7 +289,7 @@ def make_proper_data(data, sequence_number, batch):
 
 class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
     def __init__(self, nn: Callable, knn_input_features: int, attention_in_features: int, head_num: int, k: int, aggr: str = 'max',
-                 num_workers: int = 1, spatio_temporal_factor: int = 0, **kwargs):
+                 num_workers: int = 1, spatio_temporal_factor: float = 0, **kwargs):
         super(GeneralizedTemporalSelfAttentionDynamicEdgeConv,
               self).__init__(aggr=aggr, flow='target_to_source', **kwargs)
 
@@ -314,7 +314,7 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
             batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
         knn_input = torch.cat((x, sequence_number.reshape(-1, 1)), 1)
         knn_input = self.batch_norm_for_knn_input(knn_input)
-        knn_input[:, 3] *= self.spatio_temporal_factor
+        knn_input[:, -1] *= self.spatio_temporal_factor
         source_data, source_batch, target_data, target_batch, index_mapper = make_proper_data(knn_input,
                                                                                               sequence_number, batch)
         if isinstance(x, Tensor):

@@ -60,3 +60,4 @@ source_data, source_batch, target_data, target_batch, index_mapper = make_proper
 edge_index = knn(target_data, source_data, 2, target_batch, source_batch)
 print(sequence_number[index_mapper[edge_index[1]]] - sequence_number[edge_index[0]])
 print(edge_index[1] - edge_index[0])
+
