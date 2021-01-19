@@ -117,13 +117,13 @@ class Net(torch.nn.Module):
                                                                      attention_in_features=64,
                                                                      head_num=4,
                                                                      k=k,
-                                                                     spatio_temporal_factor=100)
+                                                                     spatio_temporal_factor=0.5)
         self.conv2 = GeneralizedTemporalSelfAttentionDynamicEdgeConv(nn=MLP([2 * 64, 128]),
                                                                      knn_input_features=64,
                                                                      attention_in_features=128,
                                                                      head_num=8,
                                                                      k=k,
-                                                                     spatio_temporal_factor=100,
+                                                                     spatio_temporal_factor=7,
                                                                      aggr=aggr)
         self.lin1 = MLP([128 + 64, 1024])
 
