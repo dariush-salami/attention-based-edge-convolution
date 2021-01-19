@@ -292,7 +292,7 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
     def __init__(self, nn: Callable, knn_input_features: int, attention_in_features: int, head_num: int, k: int, aggr: str = 'max',
                  num_workers: int = 1, spatio_temporal_factor: float = 0, **kwargs):
         super(GeneralizedTemporalSelfAttentionDynamicEdgeConv,
-              self).__init__(aggr=aggr, flow='source_to_target', **kwargs)
+              self).__init__(aggr=aggr, flow='target_to_source', **kwargs)
 
         if knn is None:
             raise ImportError('`GeneralizedTemporalSelfAttentionDynamicEdgeConv` requires `torch-cluster`.')
@@ -313,21 +313,49 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
             self, x: Union[Tensor, PairTensor],
             sequence_number: Union[Tensor, PairTensor],
             batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
-        knn_input = torch.cat((x, sequence_number.reshape(-1, 1)), 1)
-        knn_input = self.batch_norm_for_knn_input(knn_input)
-        knn_input[:, -1] *= self.spatio_temporal_factor
-        source_data, source_batch, target_data, target_batch, index_mapper = make_proper_data(knn_input,
-                                                                                              sequence_number, batch)
+        num_frames = len(np.unique(sequence_number.cpu().numpy()))
+        """"""
         if isinstance(x, Tensor):
             x: PairTensor = (x, x)
         assert x[0].dim() == 2, \
-            'Static graphs not supported in `GeneralizedTemporalSelfAttentionDynamicEdgeConv`.'
+            'Static graphs not supported in `TemporalSelfAttentionDynamicEdgeConv`.'
 
-        edge_index = knn(target_data, source_data, self.k, target_batch, source_batch,
+        b: PairOptTensor = (None, None)
+        if isinstance(batch, Tensor):
+            # b = (batch, batch)
+            b_list = [(batch * num_frames + sequence_number - 1).long(),
+                      (batch * num_frames + sequence_number - 2).long()]
+            b_list[1] = torch.where((sequence_number == 1) | (sequence_number == num_frames), b_list[0], b_list[1])
+            b = (b_list[0], b_list[1])
+        elif isinstance(batch, tuple):
+            assert batch is not None
+            b = (batch[0], batch[1])
+
+        edge_index = knn(x[0], x[1], self.k, b[0], b[1],
                          num_workers=self.num_workers)
-        edge_index[1] = index_mapper[edge_index[1]]
+
         # propagate_type: (x: PairTensor)
         return self.propagate(edge_index, x=x, size=None, batch=batch)
+
+    # def forward(
+    #         self, x: Union[Tensor, PairTensor],
+    #         sequence_number: Union[Tensor, PairTensor],
+    #         batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
+    #     knn_input = torch.cat((x, sequence_number.reshape(-1, 1)), 1)
+    #     knn_input = self.batch_norm_for_knn_input(knn_input)
+    #     knn_input[:, -1] *= self.spatio_temporal_factor
+    #     source_data, source_batch, target_data, target_batch, index_mapper = make_proper_data(knn_input,
+    #                                                                                           sequence_number, batch)
+    #     if isinstance(x, Tensor):
+    #         x: PairTensor = (x, x)
+    #     assert x[0].dim() == 2, \
+    #         'Static graphs not supported in `GeneralizedTemporalSelfAttentionDynamicEdgeConv`.'
+    #
+    #     edge_index = knn(target_data, source_data, self.k, target_batch, source_batch,
+    #                      num_workers=self.num_workers)
+    #     edge_index[1] = index_mapper[edge_index[1]]
+    #     # propagate_type: (x: PairTensor)
+    #     return self.propagate(edge_index, x=x, size=None, batch=batch)
 
     def message(self, x_i: Tensor, x_j: Tensor) -> Tensor:
         return self.nn(torch.cat([x_i, x_j - x_i], dim=-1))
