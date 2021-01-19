@@ -257,11 +257,75 @@ class TemporalSelfAttentionDynamicEdgeConv(MessagePassing):
         return '{}(nn={}, k={})'.format(self.__class__.__name__, self.nn,
                                         self.k)
 
+
+class TemporalDecoder(MessagePassing):
+    def __init__(self, nn: Callable, k: int, aggr: str = 'max', **kwargs):
+        super(TemporalDecoder, self).__init__(aggr=aggr, flow='target_to_source', **kwargs)
+
+        if knn is None:
+            raise ImportError('`TemporalSelfAttentionDynamicEdgeConv` requires `torch-cluster`.')
+
+        self.nn = nn
+        self.k = k
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        reset(self.nn)
+
+    def message(self, x_j: Tensor) -> Tensor:
+        return self.nn(x_j)
+    def forward(
+            self, x: Union[Tensor, PairTensor],
+            sequence_number: Union[Tensor, PairTensor],
+            batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
+        num_frames = len(np.unique(sequence_number.cpu().round().numpy()))
+        batch_size = int(np.max(batch.cpu().numpy())) + 1
+        seq_length = num_frames
+        num_points = len(x)//(seq_length*batch_size)
+
+        x_decode = (x[(sequence_number == num_frames-1)],
+                    x[(sequence_number == num_frames)])
+
+        batch_decode = (batch[(sequence_number == num_frames-1)],
+                    batch[(sequence_number == num_frames)])
+
+        grouped_points = knn(x_decode[0], x_decode[1], self.k, batch_decode[0], batch_decode[1])
+        row, col = grouped_points
+        row, col = torch.cat([row, torch.arange(x_decode[0].size(0))], dim=0)\
+            , torch.cat([col,
+                           torch.arange(x_decode[0].size(0), 2*x_decode[0].size(0))])
+        edge_index = torch.stack([row, col], dim=0)
+        x = torch.cat([x_decode[0], x_decode[1]], dim=0)
+
+        return self.propagate(edge_index=edge_index, x=(x, torch.empty(x_decode[0].size(0), 1)))
+
+
+        if isinstance(x, Tensor):
+            x: PairTensor = (x, x)
+        assert x[0].dim() == 2, \
+            'Static graphs not supported in `TemporalSelfAttentionDynamicEdgeConv`.'
+
+        b: PairOptTensor = (None, None)
+        if isinstance(batch, Tensor):
+            # b = (batch, batch)
+            b_list = [(batch * num_frames + sequence_number - 1).long(),
+                      (batch * num_frames + sequence_number - 2).long()]
+            b_list[1] = torch.where((sequence_number == 1) | (sequence_number == num_frames), b_list[0], b_list[1])
+            b = (b_list[0], b_list[1])
+        elif isinstance(batch, tuple):
+            assert batch is not None
+            b = (batch[0], batch[1])
+
+        edge_index = knn(x[0], x[1], self.k, b[0], b[1])
+
+
+
+
 class SelfTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
     def __init__(self, nn: Callable, in_features: int, head_num: int, k: int, aggr: str = 'max',
                  num_workers: int = 1, **kwargs):
         super(SelfTemporalSelfAttentionDynamicEdgeConv,
-              self).__init__(aggr=aggr, flow='target_to_source', **kwargs)
+              self).__init__(aggr=aggr, flow='source_to_target', **kwargs)
 
         if knn is None:
             raise ImportError('`TemporalSelfAttentionDynamicEdgeConv` requires `torch-cluster`.')

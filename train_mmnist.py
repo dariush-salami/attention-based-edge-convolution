@@ -152,7 +152,7 @@ def train():
         labels = data.y[:, 1:].float()
         labels = labels.reshape((-1, 10, 128, 3))
         optimizer.zero_grad()
-        loss = ch_loss = emd_loss = 0
+        step_loss = step_ch_dist = step_emd_dist = 0
         input = data
         input.x = input.x.float()
         for t in range(10):
@@ -162,27 +162,27 @@ def train():
             
             dist_forward, dist_backward = ch(pred_frame, frame)
             ch_dist = (torch.mean(dist_forward)) + (torch.mean(dist_backward))
-            ch_loss = ch_loss + ch_dist
+            step_ch_dist = step_ch_dist + ch_dist.item()
 
             emd_dist = torch.mean(emd(pred_frame, frame, transpose=False))
-            emd_loss = emd_loss + emd_dist
-            loss = loss + (CD_ALPHA*ch_dist) + (EMD_BETA*emd_dist)
-            
+            step_emd_dist = step_emd_dist + emd_dist.item()
+
+            loss = (CD_ALPHA*ch_dist) + (EMD_BETA*emd_dist)
+            step_loss = loss.item() + step_loss
             pred_frame = torch.cat([torch.tensor([t + 1 + 10]).float().to(device).reshape(1, 1, 1)
                                    .repeat([pred_frame.shape[0], 128, 1]), pred_frame],
                                    dim=-1)
             
             input.x = torch.cat([input.x.reshape([-1, 10, 128, 4])[:, 1:],
                                         pred_frame.unsqueeze(1).detach()], dim=1).view(-1, 4)
-        loss = loss/ 10
-        ch_dist = ch_dist / 10
-        emd_dist = emd_dist / 1280
+            loss.backward()
+        step_loss = step_loss/ 10
+        step_ch_dist = step_ch_dist / 10
+        step_emd_dist = step_emd_dist / 1280
         
-        loss.backward()
-        
-        total_loss += loss.item() * data.num_graphs
-        total_ch_loss += ch_loss.item() * data.num_graphs
-        total_em_loss += emd_loss.item() * data.num_graphs
+        total_loss += step_loss * data.num_graphs
+        total_ch_loss += step_ch_dist * data.num_graphs
+        total_em_loss += step_emd_dist * data.num_graphs
         
         optimizer.step()
         step += 1
