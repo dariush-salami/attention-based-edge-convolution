@@ -292,7 +292,7 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
     def __init__(self, nn: Callable, knn_input_features: int, attention_in_features: int, head_num: int, k: int, aggr: str = 'max',
                  num_workers: int = 1, spatio_temporal_factor: float = 0, **kwargs):
         super(GeneralizedTemporalSelfAttentionDynamicEdgeConv,
-              self).__init__(aggr=aggr, flow='target_to_source', **kwargs)
+              self).__init__(aggr=aggr, flow='source_to_target', **kwargs)
 
         if knn is None:
             raise ImportError('`GeneralizedTemporalSelfAttentionDynamicEdgeConv` requires `torch-cluster`.')
@@ -326,7 +326,6 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
         edge_index = knn(target_data, source_data, self.k, target_batch, source_batch,
                          num_workers=self.num_workers)
         edge_index[1] = index_mapper[edge_index[1]]
-        edge_index[[0, 1]] = edge_index[[1, 0]]
         # propagate_type: (x: PairTensor)
         return self.propagate(edge_index, x=x, size=None, batch=batch)
 
