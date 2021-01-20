@@ -331,9 +331,9 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
         edge_index = knn(target_data, source_data, self.k, target_batch, source_batch,
                          num_workers=self.num_workers)
         edge_index[1] = index_mapper[edge_index[1]]
-        print('Mean frame difference: {}'.format(
-            (sequence_number[edge_index[1]] - sequence_number[edge_index[0]]).mean()
-        ))
+        # print('Mean frame difference: {}'.format(
+        #     (sequence_number[edge_index[1]] - sequence_number[edge_index[0]]).mean()
+        # ))
         # propagate_type: (x: PairTensor)
         return self.propagate(edge_index, x=x, size=None, batch=batch)
 
