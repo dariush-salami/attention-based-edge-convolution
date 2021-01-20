@@ -22,7 +22,7 @@ parser.add_argument('--model', type=str, default='modified_edgecnn',
                     help='Model to run on the data (stgcnn, dgcnn, tgcnn, modified_edgecnn) [default: modified_edgecnn]')
 parser.add_argument('--log_dir', default='stgcnn', help='Log dir [default: stgcnn]')
 parser.add_argument('--k', default=4, type=int, help='Number of nearest points [default: 4]')
-parser.add_argument('--t', default=2, help='Number of future frames to look at [default: 5]')
+parser.add_argument('--t', default=1, help='Number of future frames to look at [default: 1]')
 parser.add_argument('--max_epoch', type=int, default=1000, help='Epoch to run [default: 251]')
 parser.add_argument('--normalize_data', default=False, help='Normalize the point cloud [default: False]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
@@ -82,7 +82,7 @@ train_loader = DataLoader(
 test_loader = DataLoader(
     test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=6)
 
-model = MODEL.Net(NUM_CLASSES, k=K).to(device)
+model = MODEL.Net(NUM_CLASSES, k=K, T=T).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 

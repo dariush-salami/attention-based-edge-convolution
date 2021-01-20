@@ -96,7 +96,7 @@ class STNkd(nn.Module):
 
 
 class Net(torch.nn.Module):
-    def __init__(self, out_channels, k=4, aggr='max'):
+    def __init__(self, out_channels, T=1, k=4, aggr='max'):
         super().__init__()
         self.stn = STN3d()
         # self.fstn = STNkd(k=64)
@@ -113,18 +113,18 @@ class Net(torch.nn.Module):
         #                                                   128, 8, k, aggr)
 
         self.conv1 = GeneralizedTemporalSelfAttentionDynamicEdgeConv(nn=MLP([2 * 3, 64, 64, 64]),
-                                                                     knn_input_features=3,
                                                                      attention_in_features=64,
                                                                      head_num=4,
                                                                      k=k,
-                                                                     spatio_temporal_factor=1)
+                                                                     spatio_temporal_factor=1,
+                                                                     T=T)
         self.conv2 = GeneralizedTemporalSelfAttentionDynamicEdgeConv(nn=MLP([2 * 64, 128]),
-                                                                     knn_input_features=64,
                                                                      attention_in_features=128,
                                                                      head_num=8,
                                                                      k=k,
                                                                      spatio_temporal_factor=4,
-                                                                     aggr=aggr)
+                                                                     aggr=aggr,
+                                                                     T=T)
         self.lin1 = MLP([128 + 64, 1024])
 
         self.mlp = Seq(
