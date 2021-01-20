@@ -292,7 +292,8 @@ def make_proper_data(data, sequence_number, batch, self_loop=False):
 
 
 class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
-    def __init__(self, nn: Callable, knn_input_features: int, attention_in_features: int, head_num: int, k: int, aggr: str = 'max',
+    def __init__(self, nn: Callable, knn_input_features: int, attention_in_features: int, head_num: int, k: int,
+                 aggr: str = 'max',
                  num_workers: int = 1, spatio_temporal_factor: float = 0, **kwargs):
         super(GeneralizedTemporalSelfAttentionDynamicEdgeConv,
               self).__init__(aggr=aggr, flow='target_to_source', **kwargs)
@@ -305,7 +306,6 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
         self.k = k
         self.num_workers = num_workers
         self.spatio_temporal_factor = spatio_temporal_factor
-        self.batch_norm_for_knn_input = BN(knn_input_features + 1)
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -316,13 +316,13 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
             self, x: Union[Tensor, PairTensor],
             sequence_number: Union[Tensor, PairTensor],
             batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
-        knn_input = torch.cat((x, sequence_number.reshape(-1, 1)), 1)
-        knn_input = self.batch_norm_for_knn_input(knn_input)
+        normalized_sequence_number = 2 * (sequence_number - sequence_number.min()) / (
+                    sequence_number.max() - sequence_number.min()) - 1
+        knn_input = torch.cat((x, normalized_sequence_number.reshape(-1, 1)), 1)
         knn_input[:, -1] *= self.spatio_temporal_factor
         source_data, source_batch, target_data, target_batch, index_mapper = make_proper_data(knn_input,
                                                                                               sequence_number,
-                                                                                              batch,
-                                                                                              True)
+                                                                                              batch)
         if isinstance(x, Tensor):
             x: PairTensor = (x, x)
         assert x[0].dim() == 2, \
@@ -331,6 +331,9 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
         edge_index = knn(target_data, source_data, self.k, target_batch, source_batch,
                          num_workers=self.num_workers)
         edge_index[1] = index_mapper[edge_index[1]]
+        print('Mean frame difference: {}'.format(
+            (sequence_number[edge_index[1]] - sequence_number[edge_index[0]]).mean()
+        ))
         # propagate_type: (x: PairTensor)
         return self.propagate(edge_index, x=x, size=None, batch=batch)
 

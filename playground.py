@@ -61,3 +61,9 @@ edge_index = knn(target_data, source_data, 2, target_batch, source_batch)
 print(sequence_number[index_mapper[edge_index[1]]] - sequence_number[edge_index[0]])
 print(edge_index[1] - edge_index[0])
 
+
+bn = BN(3)
+
+A = torch.tensor([1, 2, 3, 4, 5, 6], dtype=torch.float64)
+
+print(2 * (A - A.min()) / (A.max() - A.min()) - 1)
