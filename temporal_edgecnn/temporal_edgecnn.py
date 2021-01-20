@@ -320,7 +320,9 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
         knn_input = self.batch_norm_for_knn_input(knn_input)
         knn_input[:, -1] *= self.spatio_temporal_factor
         source_data, source_batch, target_data, target_batch, index_mapper = make_proper_data(knn_input,
-                                                                                              sequence_number, batch)
+                                                                                              sequence_number,
+                                                                                              batch,
+                                                                                              True)
         if isinstance(x, Tensor):
             x: PairTensor = (x, x)
         assert x[0].dim() == 2, \
