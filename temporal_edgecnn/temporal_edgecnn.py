@@ -275,10 +275,10 @@ def make_proper_data(data, sequence_number, batch, self_loop=False, T=1):
     point_number = len(data) // (batch_size * frame_number)
     source_batch = (batch * frame_number + sequence_number - 1).long()
     target_batch = source_batch.clone()
-    target = target.reshape(batch_size, frame_number, -1, data.shape[-1])
-    index_mapper = index_mapper.reshape(batch_size, frame_number, -1, 1)
-    target = target.repeat(frame_number, 1, 1, 1).reshape(batch_size, frame_number * frame_number, -1, data.shape[-1])
-    index_mapper = index_mapper.repeat(frame_number, 1, 1, 1).reshape(batch_size, frame_number * frame_number, -1, 1)
+    target = target.reshape(batch_size, 1, frame_number, -1, data.shape[-1])
+    index_mapper = index_mapper.reshape(batch_size, 1, frame_number, -1, 1)
+    target = target.repeat(1, frame_number, 1, 1, 1).reshape(batch_size, frame_number * frame_number, -1, data.shape[-1])
+    index_mapper = index_mapper.repeat(1, frame_number, 1, 1, 1).reshape(batch_size, frame_number * frame_number, -1, 1)
     if self_loop:
         mask = torch.tril(torch.ones((frame_number, frame_number), device=data.device))
     else:
