@@ -291,9 +291,9 @@ class TemporalDecoder(MessagePassing):
 
         grouped_points = knn(x_decode[0], x_decode[1], self.k, batch_decode[0], batch_decode[1])
         row, col = grouped_points
-        row, col = torch.cat([row, torch.arange(x_decode[0].size(0))], dim=0)\
+        row, col = torch.cat([row, torch.arange(x_decode[0].size(0)).to(row.device)], dim=0)\
             , torch.cat([col,
-                           torch.arange(x_decode[0].size(0), 2*x_decode[0].size(0))])
+                           torch.arange(x_decode[0].size(0), 2*x_decode[0].size(0)).to(col.device)])
         edge_index = torch.stack([row, col], dim=0)
         x = torch.cat([x_decode[0], x_decode[1]], dim=0)
 

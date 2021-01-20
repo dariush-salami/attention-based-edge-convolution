@@ -22,14 +22,14 @@ sys.path.append(osp.join(ROOT_DIR, 'models'))
 parser = argparse.ArgumentParser(description='Configurations')
 parser.add_argument('--model', type=str, default='modified_edgecnn_regression',
                     help='Model to run on the data (stgcnn, dgcnn, tgcnn, modified_edgecnn) [default: modified_edgecnn]')
-parser.add_argument('--log_dir', default='Self_temporal_regression_mmnist_step', help='Log dir [default: stgcnn]')
+parser.add_argument('--log_dir', default='temporal_regression_mmnist_decoder_step', help='Log dir [default: stgcnn]')
 parser.add_argument('--k', default=5, help='Number of nearest points [default: 5]')
 parser.add_argument('--t', default=2, help='Number of future frames to look at [default: 5]')
 parser.add_argument('--alpha', type=float, default=1.0, help='Weigh on CD loss [default: 1.0]')
 parser.add_argument('--beta', type=float, default=1.0, help='Weigh on EMD loss [default: 1.0]')
 parser.add_argument('--max_epoch', type=int, default=100, help='Epoch to run [default: 251]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
-parser.add_argument('--batch_size', type=int, default=10, help='Batch size [default: 32]')
+parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
 parser.add_argument('--dataset', default='data/mmnist', help='Dataset path. [default: data/pantomime]')
 parser.add_argument('--early_stopping', default='True', help='Whether to use early stopping [default: True]')
 parser.add_argument('--early_stopping_patience', type=int, default=100,
@@ -105,7 +105,7 @@ train_loader = DataLoader(
 test_loader = DataLoader(
     test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=6)
 
-model = MODEL.Net(128*3).to(device)
+model = MODEL.Net(3).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 ch = ChamferDistance()
@@ -169,13 +169,20 @@ def train():
 
             loss = (CD_ALPHA*ch_dist) + (EMD_BETA*emd_dist)
             step_loss = loss.item() + step_loss
-            pred_frame = torch.cat([torch.tensor([t + 1 + 10]).float().to(device).reshape(1, 1, 1)
-                                   .repeat([pred_frame.shape[0], 128, 1]), pred_frame],
-                                   dim=-1)
             
-            input.x = torch.cat([input.x.reshape([-1, 10, 128, 4])[:, 1:],
-                                        pred_frame.unsqueeze(1).detach()], dim=1).view(-1, 4)
             loss.backward()
+            
+#             pred_frame = torch.cat([torch.tensor([10]).float().to(device).reshape(1, 1, 1)
+#                                    .repeat([pred_frame.shape[0], 128, 1]), pred_frame],
+#                                    dim=-1)
+            seq_number = input.x[:, 0:1]
+            
+            input.x = torch.cat([input.x.reshape([-1, 10, 128, 4])[:, 1:, :, 1:],
+                                 pred_frame.unsqueeze(1).detach()], dim=1).view(-1, 3)
+            input.x = torch.cat([seq_number, input.x], dim=-1)
+#             input.x = torch.cat([input.x.reshape([-1, 10, 128, 4])[:, 1:],
+#                                         ], dim=1).view(-1, 4)
+            
         step_loss = step_loss/ 10
         step_ch_dist = step_ch_dist / 10
         step_emd_dist = step_emd_dist / 1280
@@ -200,7 +207,7 @@ def test(loader):
             seq = []
             input = data
             for i in range(10):
-                out = model(input).unsqueeze(1)
+                out = model(input).reshape(-1, 1, 128 * 3)
                 seq.append(out)
                 input.x[:, 1:] = torch.cat([input.x[:, 1:].reshape([-1, 10, 128*3])[:, 1:],
                                             out], dim=1).view(-1, 3)
@@ -226,8 +233,8 @@ current_ch_loss = 0
 last_improvement = 0
 
 for epoch in range(1, MAX_EPOCH):
-    current_loss, current_ch_loss, current_emd_loss = test(test_loader)
-    print(current_loss, current_ch_loss, current_emd_loss)
+#     current_loss, current_ch_loss, current_emd_loss = test(test_loader)
+#     print(current_loss, current_ch_loss, current_emd_loss)
     loss,_,_ = train()
     scheduler.step()
     current_loss, current_ch_loss, current_emd_loss = test(test_loader)
