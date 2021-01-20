@@ -22,7 +22,7 @@ parser.add_argument('--model', type=str, default='modified_edgecnn',
                     help='Model to run on the data (stgcnn, dgcnn, tgcnn, modified_edgecnn) [default: modified_edgecnn]')
 parser.add_argument('--log_dir', default='stgcnn', help='Log dir [default: stgcnn]')
 parser.add_argument('--k', default=4, type=int, help='Number of nearest points [default: 4]')
-parser.add_argument('--t', default=1, type=int, help='Number of future frames to look at [default: 1]')
+parser.add_argument('--t', default=1000, type=int, help='Number of future frames to look at [default: 1]')
 parser.add_argument('--max_epoch', type=int, default=1000, help='Epoch to run [default: 251]')
 parser.add_argument('--normalize_data', default=False, help='Normalize the point cloud [default: False]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')

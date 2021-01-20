@@ -295,6 +295,7 @@ def make_proper_data(data, sequence_number, batch, self_loop=False, T=1):
 
 class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
     def __init__(self, nn: Callable, T: int, attention_in_features: int, head_num: int, k: int,
+                 knn_input_features_num: int,
                  aggr: str = 'max',
                  num_workers: int = 1, spatio_temporal_factor: float = 0, **kwargs):
         super(GeneralizedTemporalSelfAttentionDynamicEdgeConv,
@@ -306,6 +307,7 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
         self.nn = nn
         self.multihead_attn = MultiHeadAttention(attention_in_features, head_num)
         self.k = k
+        self.batch_norm_for_knn_input = BN(knn_input_features_num + 1)
         self.num_workers = num_workers
         self.spatio_temporal_factor = spatio_temporal_factor
         self.T = T
@@ -319,11 +321,10 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
             self, x: Union[Tensor, PairTensor],
             sequence_number: Union[Tensor, PairTensor],
             batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
-        # normalized_sequence_number = 2 * (sequence_number - sequence_number.min()) / (
-        #             sequence_number.max() - sequence_number.min()) - 1
-        # knn_input = torch.cat((x, normalized_sequence_number.reshape(-1, 1)), 1)
-        # knn_input[:, -1] *= self.spatio_temporal_factor
-        source_data, source_batch, target_data, target_batch, index_mapper = make_proper_data(x,
+        knn_input = torch.cat((x, sequence_number.reshape(-1, 1)), 1)
+        knn_input = self.batch_norm_for_knn_input(knn_input)
+        knn_input[:, -1] *= self.spatio_temporal_factor
+        source_data, source_batch, target_data, target_batch, index_mapper = make_proper_data(knn_input,
                                                                                               sequence_number,
                                                                                               batch,
                                                                                               T=self.T)

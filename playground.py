@@ -38,7 +38,7 @@ batch_size = 3
 x = torch.rand((batch_size * num_frames * num_points, 3))
 sequence_number = torch.arange(1, num_frames + 1).reshape(1, -1, 1).repeat(batch_size, 1, num_points).reshape(-1)
 batch = torch.arange(0, batch_size).reshape(-1, 1).repeat(1, num_points * num_frames).reshape(-1)
-source_data, source_batch, target_data, target_batch, index_mapper = make_proper_data(x, sequence_number, batch)
+source_data, source_batch, target_data, target_batch, index_mapper = make_proper_data(x, sequence_number, batch, False, 100)
 
 edge_index = knn(target_data, source_data, 2, target_batch, source_batch)
 edge_index[1] = index_mapper[edge_index[1]]
