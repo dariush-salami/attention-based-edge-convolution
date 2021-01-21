@@ -68,7 +68,7 @@ def check_available_gpu(scheduler):
     std_out_array = StringIO(result.stdout.decode('utf-8'))
     gpu_info = pd.read_csv(std_out_array)
     gpu_info.columns = ['gpu_id', 'free_memory']
-    gpu_info['gpu_id'] = gpu_info['gpu_id'].astype(float)
+    gpu_info['gpu_id'] = gpu_info['gpu_id'].astype(int)
     gpu_info['free_memory'] = gpu_info['free_memory'].str.extract(r'(\d+)', expand=False).astype(float)
     available_gpu = gpu_info[gpu_info['free_memory'] >= GPU_AVAILABLE_THRESHOLD]
     restart_scheduler = False
