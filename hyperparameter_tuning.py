@@ -27,7 +27,7 @@ def start_next_job_on_gpu(gpu_id):
     for GCN_LAYER in HYPER_PARAMETERS['GCN_LAYERS']:
         for ST_FACTOR in HYPER_PARAMETERS['ST_FACTORS']:
             for K in HYPER_PARAMETERS['KS']:
-                if DONE_ARRAY and DONE_ARRAY[(DONE_ARRAY[:, 0] == GCN_LAYER) & (DONE_ARRAY[:, 1] == ST_FACTOR) & (DONE_ARRAY[:, 2] == K)]:
+                if DONE_ARRAY is not None and DONE_ARRAY[(DONE_ARRAY[:, 0] == GCN_LAYER) & (DONE_ARRAY[:, 1] == ST_FACTOR) & (DONE_ARRAY[:, 2] == K)]:
                     continue
                 else:
                     no_job_to_run = False
