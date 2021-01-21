@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 
-GPU_CHECK_INTERVAL = 10
+GPU_CHECK_INTERVAL = 3
 GPU_AVAILABLE_THRESHOLD = 10000
 BASE_PATH = 'logs/hyperparameter_tuning/'
 COMMAND_TEMPLATE = 'python train.py --t=1000 --gpu_id={} --log_dir={} --k={} --spatio_temporal_factor={} ' \
@@ -45,8 +45,8 @@ def check_available_gpu(scheduler):
     result = subprocess.run(AVAILABLE_GPU_QUERY, stdout=subprocess.PIPE, shell=True)
     std_out_array = StringIO(result.stdout.decode('utf-8'))
     gpu_info = pd.read_csv(std_out_array)
-    gpu_info.columns = ['gpu_index', 'free_memory']
-    gpu_info['gpu_index'] = gpu_info['gpu_index'].astype(float)
+    gpu_info.columns = ['gpu_id', 'free_memory']
+    gpu_info['gpu_id'] = gpu_info['gpu_id'].astype(float)
     gpu_info['free_memory'] = gpu_info['free_memory'].str.extract(r'(\d+)', expand=False).astype(float)
     available_gpu = gpu_info[gpu_info['free_memory'] >= GPU_AVAILABLE_THRESHOLD]
     restart_scheduler = False
