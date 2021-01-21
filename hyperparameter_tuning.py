@@ -7,7 +7,7 @@ import pandas as pd
 
 
 GPU_CHECK_INTERVAL = 3
-GPU_AVAILABLE_THRESHOLD = 10000
+GPU_AVAILABLE_THRESHOLD = 1000
 BASE_PATH = 'logs/hyperparameter_tuning/'
 COMMAND_TEMPLATE = 'python train.py --t=1000 --gpu_id={} --log_dir={} --k={} --spatio_temporal_factor={} ' \
                    '--graph_convolution_layers={}} '
@@ -26,7 +26,7 @@ def start_next_job_on_gpu(gpu_id):
     for GCN_LAYER in HYPER_PARAMETERS['GCN_LAYERS']:
         for ST_FACTOR in HYPER_PARAMETERS['ST_FACTORS']:
             for K in HYPER_PARAMETERS['KS']:
-                if DONE_ARRAY is not None and DONE_ARRAY[(DONE_ARRAY[:, 0] == GCN_LAYER) & (DONE_ARRAY[:, 1] == ST_FACTOR) & (DONE_ARRAY[:, 2] == K)]:
+                if DONE_ARRAY is not None and len(DONE_ARRAY[(DONE_ARRAY[:, 0] == GCN_LAYER) & (DONE_ARRAY[:, 1] == ST_FACTOR) & (DONE_ARRAY[:, 2] == K)]) > 0:
                     continue
                 else:
                     if DONE_ARRAY is None:
