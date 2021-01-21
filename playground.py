@@ -4,6 +4,7 @@ import numpy as np
 from torch_scatter import scatter
 from torch.nn import BatchNorm1d as BN
 from torch_cluster import knn
+import pandas as pd
 
 
 def make_proper_data(data, sequence_number, batch, self_loop=False, T=1):
@@ -65,3 +66,7 @@ bn_input /= bn_input.max(0, keepdim=True)[0]
 after_scaling = knn(bn_input, bn_input, 2)
 
 print(before_scaling[1] - after_scaling[1])
+
+a = pd.DataFrame(np.array([[0, 1, 2, 3],
+     [4, 5, 6, 7]]))
+print(np.array([]))

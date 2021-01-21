@@ -96,9 +96,10 @@ class STNkd(nn.Module):
 
 
 class Net(torch.nn.Module):
-    def __init__(self, out_channels, T=1, k=4, aggr='max'):
+    def __init__(self, out_channels, graph_convolution_layers=2, T=1, k=4, spatio_temporal_factor=0.01, aggr='max'):
         super().__init__()
         self.stn = STN3d()
+        self.graph_convolution_layers = graph_convolution_layers
         # self.fstn = STNkd(k=64)
         # self.conv1 = AutomatedGraphDynamicEdgeConv(MLP([3, 16]),
         #                                            MLP([2 * 16, 64, 64, 64]),
@@ -114,18 +115,32 @@ class Net(torch.nn.Module):
 
         self.conv1 = GeneralizedTemporalSelfAttentionDynamicEdgeConv(nn=MLP([2 * 3, 64, 64, 64]),
                                                                      attention_in_features=64,
-                                                                     head_num=4,
+                                                                     head_num=8,
                                                                      k=k,
-                                                                     spatio_temporal_factor=1,
+                                                                     spatio_temporal_factor=spatio_temporal_factor,
                                                                      T=T)
         self.conv2 = GeneralizedTemporalSelfAttentionDynamicEdgeConv(nn=MLP([2 * 64, 128]),
                                                                      attention_in_features=128,
                                                                      head_num=8,
                                                                      k=k,
-                                                                     spatio_temporal_factor=4,
+                                                                     spatio_temporal_factor=spatio_temporal_factor,
                                                                      aggr=aggr,
                                                                      T=T)
-        self.lin1 = MLP([128 + 64, 1024])
+        self.conv3 = GeneralizedTemporalSelfAttentionDynamicEdgeConv(nn=MLP([2 * 128, 256]),
+                                                                     attention_in_features=256,
+                                                                     head_num=8,
+                                                                     k=k,
+                                                                     spatio_temporal_factor=spatio_temporal_factor,
+                                                                     aggr=aggr,
+                                                                     T=T)
+        assert (1 <= graph_convolution_layers <= 3,
+                'The number of graph convolution layers should between and including 1 and 3.')
+        if graph_convolution_layers == 3:
+            self.lin1 = MLP([256 + 128 + 64, 1024])
+        elif graph_convolution_layers == 2:
+            self.lin1 = MLP([128 + 64, 1024])
+        elif graph_convolution_layers == 1:
+            self.lin1 = MLP([64, 1024])
 
         self.mlp = Seq(
             MLP([1024, 512]), Dropout(0.5), MLP([512, 256]), Dropout(0.5),
@@ -138,9 +153,18 @@ class Net(torch.nn.Module):
         pos = pos.transpose(2, 1)
         pos = torch.bmm(pos, trans)
         pos = pos.reshape(-1, 3)
-        x1 = self.conv1(pos, sequence_numbers, batch)
-        x2 = self.conv2(x1, sequence_numbers, batch)
-        out = self.lin1(torch.cat([x1, x2], dim=1))
+        if self.graph_convolution_layers == 3:
+            x1 = self.conv1(pos, sequence_numbers, batch)
+            x2 = self.conv2(x1, sequence_numbers, batch)
+            x3 = self.conv3(x2, sequence_numbers, batch)
+            out = self.lin1(torch.cat([x1, x2, x3], dim=1))
+        elif self.graph_convolution_layers == 2:
+            x1 = self.conv1(pos, sequence_numbers, batch)
+            x2 = self.conv2(x1, sequence_numbers, batch)
+            out = self.lin1(torch.cat([x1, x2], dim=1))
+        else:
+            x1 = self.conv1(pos, sequence_numbers, batch)
+            out = self.lin1(x1)
         out = global_max_pool(out, batch)
         out = self.mlp(out)
         return F.log_softmax(out, dim=1)

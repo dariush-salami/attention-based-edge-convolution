@@ -10,6 +10,7 @@ from torch_geometric.utils import softmax
 from torch.nn import Sequential as Seq, Linear as Lin, ReLU, BatchNorm1d as BN
 from automated_graph_creation.attention_for_graph_creation import SelfAttentionEdgeIndexCreatorLayer
 from automated_graph_creation.temporal_attention_for_graph_creation import TemporalSelfAttentionEdgeIndexCreatorLayer
+import math
 
 try:
     from torch_cluster import knn
@@ -322,7 +323,7 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
         knn_input = torch.cat((x, sequence_number.reshape(-1, 1)), 1)
         knn_input -= knn_input.min(0, keepdim=True)[0]
         knn_input /= knn_input.max(0, keepdim=True)[0]
-        knn_input[:, -1] *= self.spatio_temporal_factor
+        knn_input[:, -1] *= self.spatio_temporal_factor * math.sqrt(x.shape[-1])
         source_data, source_batch, target_data, target_batch, index_mapper = make_proper_data(knn_input,
                                                                                               sequence_number,
                                                                                               batch,
