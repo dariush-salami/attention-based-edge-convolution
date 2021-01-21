@@ -8,7 +8,7 @@ from os.path import join
 import pathlib
 
 GPU_CHECK_INTERVAL = 3
-GPU_AVAILABLE_THRESHOLD = 1000
+GPU_AVAILABLE_THRESHOLD = 10000
 LOG_PATH_TEMPLATE = join(
     pathlib.Path(__file__).parent.absolute(),
     'logs/hyperparameter_tuning/gcn_layers_{gcn_layers}_st_factor_{st_factor}_k_{k}'
