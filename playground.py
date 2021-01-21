@@ -51,12 +51,17 @@ print(edge_index)
 print(batch[edge_index[1]] - batch[edge_index[0]])
 print(sequence_number[edge_index[1]] - sequence_number[edge_index[0]])
 
-bn_input = torch.arange(15).type(torch.double).reshape(5, 3)
+bn_input = torch.rand((15, 3))
 batch_nrom = BN(3, affine=False, track_running_stats=False)
 print(bn_input)
 print(batch_nrom(bn_input))
 
+before_scaling = knn(bn_input, bn_input, 2)
 
 bn_input -= bn_input.min(0, keepdim=True)[0]
 bn_input /= bn_input.max(0, keepdim=True)[0]
-print(bn_input)
+# print(bn_input)
+
+after_scaling = knn(bn_input, bn_input, 2)
+
+print(before_scaling[1] - after_scaling[1])
