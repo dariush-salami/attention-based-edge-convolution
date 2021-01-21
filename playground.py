@@ -16,7 +16,8 @@ def make_proper_data(data, sequence_number, batch, self_loop=False, T=1):
     target_batch = source_batch.clone()
     target = target.reshape(batch_size, 1, frame_number, -1, data.shape[-1])
     index_mapper = index_mapper.reshape(batch_size, 1, frame_number, -1, 1)
-    target = target.repeat(1, frame_number, 1, 1, 1).reshape(batch_size, frame_number * frame_number, -1, data.shape[-1])
+    target = target.repeat(1, frame_number, 1, 1, 1).reshape(batch_size, frame_number * frame_number, -1,
+                                                             data.shape[-1])
     index_mapper = index_mapper.repeat(1, frame_number, 1, 1, 1).reshape(batch_size, frame_number * frame_number, -1, 1)
     if self_loop:
         mask = torch.tril(torch.ones((frame_number, frame_number), device=data.device))
@@ -38,7 +39,8 @@ batch_size = 3
 x = torch.rand((batch_size * num_frames * num_points, 3))
 sequence_number = torch.arange(1, num_frames + 1).reshape(1, -1, 1).repeat(batch_size, 1, num_points).reshape(-1)
 batch = torch.arange(0, batch_size).reshape(-1, 1).repeat(1, num_points * num_frames).reshape(-1)
-source_data, source_batch, target_data, target_batch, index_mapper = make_proper_data(x, sequence_number, batch, False, 100)
+source_data, source_batch, target_data, target_batch, index_mapper = make_proper_data(x, sequence_number, batch, False,
+                                                                                      100)
 
 edge_index = knn(target_data, source_data, 2, target_batch, source_batch)
 edge_index[1] = index_mapper[edge_index[1]]
@@ -48,3 +50,13 @@ print(batch)
 print(edge_index)
 print(batch[edge_index[1]] - batch[edge_index[0]])
 print(sequence_number[edge_index[1]] - sequence_number[edge_index[0]])
+
+bn_input = torch.arange(15).type(torch.double).reshape(5, 3)
+batch_nrom = BN(3, affine=False, track_running_stats=False)
+print(bn_input)
+print(batch_nrom(bn_input))
+
+
+bn_input -= bn_input.min(0, keepdim=True)[0]
+bn_input /= bn_input.max(0, keepdim=True)[0]
+print(bn_input)
