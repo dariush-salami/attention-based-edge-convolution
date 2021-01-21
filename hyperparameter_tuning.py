@@ -23,14 +23,12 @@ AVAILABLE_GPU_QUERY = 'nvidia-smi --query-gpu=index,memory.free --format=csv'
 
 def start_next_job_on_gpu(gpu_id):
     global DONE_ARRAY, HYPER_PARAMETERS
-    no_job_to_run = True
     for GCN_LAYER in HYPER_PARAMETERS['GCN_LAYERS']:
         for ST_FACTOR in HYPER_PARAMETERS['ST_FACTORS']:
             for K in HYPER_PARAMETERS['KS']:
                 if DONE_ARRAY is not None and DONE_ARRAY[(DONE_ARRAY[:, 0] == GCN_LAYER) & (DONE_ARRAY[:, 1] == ST_FACTOR) & (DONE_ARRAY[:, 2] == K)]:
                     continue
                 else:
-                    no_job_to_run = False
                     if DONE_ARRAY is None:
                         DONE_ARRAY = np.array([[GCN_LAYER, ST_FACTOR, K, True]])
                     else:
@@ -40,7 +38,8 @@ def start_next_job_on_gpu(gpu_id):
                                                                                                 K,
                                                                                                 gpu_id))
                     # TODO: start the job on GPU
-    return no_job_to_run
+                    return True
+    return False
 
 
 def check_available_gpu(scheduler):
