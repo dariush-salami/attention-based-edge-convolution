@@ -7,7 +7,7 @@ import pandas as pd
 from os.path import join
 import pathlib
 
-GPU_CHECK_INTERVAL = 3
+GPU_CHECK_INTERVAL = 30
 GPU_AVAILABLE_THRESHOLD = 10000
 LOG_PATH_TEMPLATE = join(
     pathlib.Path(__file__).parent.absolute(),
