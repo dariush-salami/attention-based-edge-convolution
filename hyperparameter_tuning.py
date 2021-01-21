@@ -6,7 +6,10 @@ import numpy as np
 import pandas as pd
 from os.path import join
 import pathlib
+import sys
 
+MAXIMUM_CONCURRENT_JOBS = 3
+PROCESS_LIST = []
 GPU_CHECK_INTERVAL = 5 * 60
 GPU_AVAILABLE_THRESHOLD = 10000
 LOG_PATH_TEMPLATE = join(
@@ -25,6 +28,15 @@ HYPER_PARAMETERS = {
 DONE_ARRAY = None
 AVAILABLE_GPU_QUERY = 'nvidia-smi --query-gpu=index,memory.free --format=csv'
 
+LOG_FOUT = open('hyper_parameter_tuning_log.txt', 'w')
+
+
+def log_string(out_str):
+    LOG_FOUT.write(out_str + '\n')
+    LOG_FOUT.flush()
+    print(out_str)
+    sys.stdout.flush()
+
 
 def start_next_job_on_gpu(gpu_id):
     global DONE_ARRAY, HYPER_PARAMETERS, COMMAND_TEMPLATE, LOG_PATH_TEMPLATE
@@ -39,7 +51,7 @@ def start_next_job_on_gpu(gpu_id):
                         DONE_ARRAY = np.array([[GCN_LAYER, ST_FACTOR, K, True]])
                     else:
                         DONE_ARRAY = np.vstack((DONE_ARRAY, np.array([GCN_LAYER, ST_FACTOR, K, True])))
-                    print('Starting job for gcn_layers={}, st_factor={}, k={} on GPU={}'.format(GCN_LAYER,
+                    log_string('Starting job for gcn_layers={}, st_factor={}, k={} on GPU={}'.format(GCN_LAYER,
                                                                                                 ST_FACTOR,
                                                                                                 K,
                                                                                                 gpu_id))
@@ -55,15 +67,36 @@ def start_next_job_on_gpu(gpu_id):
                         spatio_temporal_factor=ST_FACTOR,
                         k=K
                     )
-                    subprocess.Popen(command, shell=True)
-                    print(command)
+                    PROCESS_LIST.append(subprocess.Popen(command, shell=True))
+                    log_string(command)
                     return True
     return False
 
 
 def check_available_gpu(scheduler):
-    global AVAILABLE_GPU_QUERY, GPU_CHECK_INTERVAL, GPU_AVAILABLE_THRESHOLD
-    print('GPU availability check...')
+    global AVAILABLE_GPU_QUERY, GPU_CHECK_INTERVAL, GPU_AVAILABLE_THRESHOLD, PROCESS_LIST, MAXIMUM_CONCURRENT_JOBS
+    log_string('Checking concurrent jobs criterion.')
+    current_running_jobs = 0
+    finished_processes_indices = []
+    for p_index, process in enumerate(PROCESS_LIST):
+        poll = process.poll()
+        if poll is None:
+            current_running_jobs += 1
+        else:
+            finished_processes_indices.append(p_index)
+    for index in sorted(finished_processes_indices, reverse=True):
+        del PROCESS_LIST[index]
+    if current_running_jobs > MAXIMUM_CONCURRENT_JOBS:
+        log_string('There are {}/{} running jobs. We should wait for one to finish first!'.format(
+            MAXIMUM_CONCURRENT_JOBS, MAXIMUM_CONCURRENT_JOBS
+        ))
+        scheduler.enter(GPU_CHECK_INTERVAL, 1, check_available_gpu, (scheduler,))
+        return
+    else:
+        log_string('There are {}/{} running jobs. Let\'s lunch a new one!!'.format(
+            current_running_jobs, MAXIMUM_CONCURRENT_JOBS
+        ))
+    log_string('GPU availability check...')
     result = subprocess.run(AVAILABLE_GPU_QUERY, stdout=subprocess.PIPE, shell=True)
     std_out_array = StringIO(result.stdout.decode('utf-8'))
     gpu_info = pd.read_csv(std_out_array)
@@ -73,12 +106,12 @@ def check_available_gpu(scheduler):
     available_gpu = gpu_info[gpu_info['free_memory'] >= GPU_AVAILABLE_THRESHOLD]
     restart_scheduler = False
     if available_gpu.empty:
-        print('There is no GPU available at the moment.')
+        log_string('There is no GPU available at the moment.')
         restart_scheduler = True
     else:
-        print('{} GPU(s) is(are) available for the next job.'.format(len(available_gpu.index)))
+        log_string('{} GPU(s) is(are) available for the next job.'.format(len(available_gpu.index)))
         if not start_next_job_on_gpu(available_gpu.loc[available_gpu.index[0], 'gpu_id']):
-            print('There is no job to run! Terminating the program!')
+            log_string('There is no job to run! Terminating the program!')
         else:
             restart_scheduler = True
     if restart_scheduler:
