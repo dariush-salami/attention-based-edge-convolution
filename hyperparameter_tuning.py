@@ -35,6 +35,10 @@ def start_next_job_on_gpu(gpu_id):
                         DONE_ARRAY = np.array([[GCN_LAYER, ST_FACTOR, K, True]])
                     else:
                         DONE_ARRAY = np.vstack((DONE_ARRAY, np.array([GCN_LAYER, ST_FACTOR, K, True])))
+                    print('Starting job for gcn_layers={}, st_factor={}, k={} on GPU={}'.format(GCN_LAYER,
+                                                                                                ST_FACTOR,
+                                                                                                K,
+                                                                                                gpu_id))
                     # TODO: start the job on GPU
     return no_job_to_run
 
