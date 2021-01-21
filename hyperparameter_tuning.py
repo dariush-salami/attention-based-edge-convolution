@@ -31,8 +31,8 @@ def start_next_job_on_gpu(gpu_id):
                     continue
                 else:
                     no_job_to_run = False
-                    if not DONE_ARRAY:
-                        DONE_ARRAY = np.array([GCN_LAYER, ST_FACTOR, K, True])
+                    if DONE_ARRAY is None:
+                        DONE_ARRAY = np.array([[GCN_LAYER, ST_FACTOR, K, True]])
                     else:
                         DONE_ARRAY = np.vstack((DONE_ARRAY, np.array([GCN_LAYER, ST_FACTOR, K, True])))
                     # TODO: start the job on GPU
