@@ -4,13 +4,18 @@ import time
 from io import StringIO
 import numpy as np
 import pandas as pd
-
+from os.path import join
+import pathlib
 
 GPU_CHECK_INTERVAL = 3
 GPU_AVAILABLE_THRESHOLD = 1000
-BASE_PATH = 'logs/hyperparameter_tuning/'
-COMMAND_TEMPLATE = 'python train.py --t=1000 --gpu_id={} --log_dir={} --k={} --spatio_temporal_factor={} ' \
-                   '--graph_convolution_layers={}} '
+LOG_PATH_TEMPLATE = join(
+    pathlib.Path(__file__).parent.absolute(),
+    'logs/hyperparameter_tuning/gcn_layers_{gcn_layers}_st_factor_{st_factor}_k_{k}'
+)
+COMMAND_TEMPLATE = 'python train.py --t=1000 --gpu_id={gpu_id} --log_dir={log_dir} --k={k} ' \
+                   '--spatio_temporal_factor={spatio_temporal_factor} ' \
+                   '--graph_convolution_layers={graph_convolution_layers} '
 HYPER_PARAMETERS = {
     'KS': [2, 4, 8, 16, 32],
     'ST_FACTORS': [0, 0.01, 0.05, 0.1, 10],
@@ -22,11 +27,12 @@ AVAILABLE_GPU_QUERY = 'nvidia-smi --query-gpu=index,memory.free --format=csv'
 
 
 def start_next_job_on_gpu(gpu_id):
-    global DONE_ARRAY, HYPER_PARAMETERS
+    global DONE_ARRAY, HYPER_PARAMETERS, COMMAND_TEMPLATE, LOG_PATH_TEMPLATE
     for GCN_LAYER in HYPER_PARAMETERS['GCN_LAYERS']:
         for ST_FACTOR in HYPER_PARAMETERS['ST_FACTORS']:
             for K in HYPER_PARAMETERS['KS']:
-                if DONE_ARRAY is not None and len(DONE_ARRAY[(DONE_ARRAY[:, 0] == GCN_LAYER) & (DONE_ARRAY[:, 1] == ST_FACTOR) & (DONE_ARRAY[:, 2] == K)]) > 0:
+                if DONE_ARRAY is not None and len(DONE_ARRAY[(DONE_ARRAY[:, 0] == GCN_LAYER) & (
+                        DONE_ARRAY[:, 1] == ST_FACTOR) & (DONE_ARRAY[:, 2] == K)]) > 0:
                     continue
                 else:
                     if DONE_ARRAY is None:
@@ -37,7 +43,20 @@ def start_next_job_on_gpu(gpu_id):
                                                                                                 ST_FACTOR,
                                                                                                 K,
                                                                                                 gpu_id))
-                    # TODO: start the job on GPU
+                    log_dir = LOG_PATH_TEMPLATE.format(
+                        gcn_layers=GCN_LAYER,
+                        st_factor=ST_FACTOR,
+                        k=K
+                    )
+                    command = COMMAND_TEMPLATE.format(
+                        gpu_id=gpu_id,
+                        log_dir=log_dir,
+                        graph_convolution_layers=GCN_LAYER,
+                        spatio_temporal_factor=ST_FACTOR,
+                        k=K
+                    )
+                    subprocess.Popen(command, shell=True)
+                    print(command)
                     return True
     return False
 
