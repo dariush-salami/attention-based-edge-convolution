@@ -112,9 +112,6 @@ ch = ChamferDistance()
 emd = EarthMoverDistance()
 
 
-
-
-
 def calc_loss(data, out, labels):
     loss = ch_loss = emd_loss = 0
     pc_shape = (data.num_graphs, 10, data.num_nodes//(data.num_graphs*10), 3)
@@ -150,46 +147,17 @@ def train():
         data = data.to(device)
         data = augmentation_transformer(data)
         labels = data.y[:, 1:].float()
-        labels = labels.reshape((-1, 10, 128, 3))
         optimizer.zero_grad()
-        step_loss = step_ch_dist = step_emd_dist = 0
-        input = data
-        input.x = input.x.float()
-        for t in range(10):
-            
-            pred_frame = model(input).reshape((-1, 128, 3))
-            frame = labels[:, t, :, :]
-            
-            dist_forward, dist_backward = ch(pred_frame, frame)
-            ch_dist = (torch.mean(dist_forward)) + (torch.mean(dist_backward))
-            step_ch_dist = step_ch_dist + ch_dist.item()
 
-            emd_dist = torch.mean(emd(pred_frame, frame, transpose=False))
-            step_emd_dist = step_emd_dist + emd_dist.item()
+        encoded = model.encode(data)
+        decoded = model.decode(data, encoded)
+        step_loss, step_ch_loss, step_emd_loss = calc_loss(data, decoded, labels)
 
-            loss = (CD_ALPHA*ch_dist) + (EMD_BETA*emd_dist)
-            step_loss = loss.item() + step_loss
-            
-            loss.backward()
-            
-#             pred_frame = torch.cat([torch.tensor([10]).float().to(device).reshape(1, 1, 1)
-#                                    .repeat([pred_frame.shape[0], 128, 1]), pred_frame],
-#                                    dim=-1)
-            seq_number = input.x[:, 0:1]
-            
-            input.x = torch.cat([input.x.reshape([-1, 10, 128, 4])[:, 1:, :, 1:],
-                                 pred_frame.unsqueeze(1).detach()], dim=1).view(-1, 3)
-            input.x = torch.cat([seq_number, input.x], dim=-1)
-#             input.x = torch.cat([input.x.reshape([-1, 10, 128, 4])[:, 1:],
-#                                         ], dim=1).view(-1, 4)
-            
-        step_loss = step_loss/ 10
-        step_ch_dist = step_ch_dist / 10
-        step_emd_dist = step_emd_dist / 1280
-        
-        total_loss += step_loss * data.num_graphs
-        total_ch_loss += step_ch_dist * data.num_graphs
-        total_em_loss += step_emd_dist * data.num_graphs
+        step_loss.backward()
+
+        total_loss += step_loss.item() * data.num_graphs
+        total_ch_loss += step_ch_loss.item() * data.num_graphs
+        total_em_loss += step_emd_loss.item() * data.num_graphs
         
         optimizer.step()
         step += 1
@@ -204,21 +172,15 @@ def test(loader):
     for data in tqdm(loader):
         data = data.to(device)
         with torch.no_grad():
-            seq = []
-            input = data
-            for i in range(10):
-                out = model(input).reshape(-1, 1, 128 * 3)
-                seq.append(out)
-                input.x[:, 1:] = torch.cat([input.x[:, 1:].reshape([-1, 10, 128*3])[:, 1:],
-                                            out], dim=1).view(-1, 3)
-            out = torch.cat(seq, dim=1).view(-1, 3)
+            encoded = model.encode(data)
+            decoded = model.decode(data, encoded)
             labels = data.y[:, 1:]
-            loss, ch_loss, emd_loss = calc_loss(data, out, labels)
+            loss, ch_loss, emd_loss = calc_loss(data, decoded, labels)
             total_loss += loss.item() * data.num_graphs
             total_ch_loss += ch_loss.item() * data.num_graphs
             total_em_loss += emd_loss.item() * data.num_graphs 
             
-    return total_loss / len(train_dataset), total_ch_loss / len(train_dataset), total_em_loss / len(train_dataset)
+    return total_loss / len(test_dataset), total_ch_loss / len(test_dataset), total_em_loss / len(test_dataset)
 
 
 log_string('Selected model: {}'.format(MODEL))

@@ -211,17 +211,18 @@ class TemporalSelfAttentionDynamicEdgeConv(MessagePassing):
     def forward(
             self, x: Union[Tensor, PairTensor],
             sequence_number: Union[Tensor, PairTensor],
-            batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
+            batch: Union[OptTensor, Optional[PairTensor]] = None) -> Tensor:
         num_frames = len(np.unique(sequence_number.cpu().round().numpy()))
         """"""
-        if isinstance(x, Tensor):
-            x: PairTensor = (x, x)
-        assert x[0].dim() == 2, \
-            'Static graphs not supported in `TemporalSelfAttentionDynamicEdgeConv`.'
+
 
         b: PairOptTensor = (None, None)
         if isinstance(batch, Tensor):
             # b = (batch, batch)
+            if isinstance(x, Tensor):
+                x: PairTensor = (x, x)
+            assert x[0].dim() == 2, \
+                'Static graphs not supported in `TemporalSelfAttentionDynamicEdgeConv`.'
             b_list = [(batch * num_frames + sequence_number - 1).long(),
                       (batch * num_frames + sequence_number - 2).long()]
             b_list[1] = torch.where((sequence_number == 1) | (sequence_number == num_frames), b_list[0], b_list[1])
@@ -247,6 +248,7 @@ class TemporalSelfAttentionDynamicEdgeConv(MessagePassing):
         attention_input_shape = list([int(original_shape[0] / self.k)]) + list(original_shape)
         attention_input_shape[1] = self.k
         self_attention_input = inputs.reshape(attention_input_shape)
+        # tmp = index.reshape(attention_input_shape[:2])
         attn_output = self.multihead_attn(self_attention_input, self_attention_input, self_attention_input)
         attn_output = attn_output.reshape(original_shape)
         # Apply attention mechanism
@@ -259,7 +261,7 @@ class TemporalSelfAttentionDynamicEdgeConv(MessagePassing):
 
 
 class TemporalDecoder(MessagePassing):
-    def __init__(self, nn: Callable, k: int, aggr: str = 'max', **kwargs):
+    def __init__(self, nn: Callable,in_features: int, head_num: int, k: int, aggr: str = 'max', **kwargs):
         super(TemporalDecoder, self).__init__(aggr=aggr, flow='target_to_source', **kwargs)
 
         if knn is None:
@@ -267,56 +269,64 @@ class TemporalDecoder(MessagePassing):
 
         self.nn = nn
         self.k = k
+        self.multihead_attn = MultiHeadAttention(in_features, head_num)
         self.reset_parameters()
 
     def reset_parameters(self):
+        reset(self.multihead_attn)
         reset(self.nn)
 
     def message(self, x_j: Tensor) -> Tensor:
-        return self.nn(x_j)
+        return x_j
     def forward(
-            self, x: Union[Tensor, PairTensor],
+            self, q: Union[Tensor, PairTensor],
+            h: Union[Tensor, PairTensor],
             sequence_number: Union[Tensor, PairTensor],
             batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
         num_frames = len(np.unique(sequence_number.cpu().round().numpy()))
         batch_size = int(np.max(batch.cpu().numpy())) + 1
         seq_length = num_frames
-        num_points = len(x)//(seq_length*batch_size)
+        num_points = len(q)//(seq_length*batch_size)
+        # seq_decode = sequence_number[sequence_number != num_frames]
+        # batch_decode = batch[(sequence_number != num_frames)]
 
-        x_decode = (x[(sequence_number == num_frames-1)],
-                    x[(sequence_number == num_frames)])
+        x = (h.reshape(-1, seq_length, num_points, h.shape[-1])
+             .repeat_interleave(seq_length, 0).view(-1, h.shape[-1]),
+             q.reshape(-1, seq_length, num_points, q.shape[-1])
+             .repeat_interleave(seq_length, 1).view(-1, q.shape[-1]))
+        self.q = q
+        batch_knn = torch.arange(x[0].shape[0]//num_points).repeat_interleave(num_points)
+        grouped_points = knn(x[0], x[1], self.k, batch_knn, batch_knn)
+        return self.propagate(x=x, edge_index=grouped_points)
+        # tmp = grouped_points[0].reshape(seq_length, -1,  self.k)
+        # tmp2 = tmp.transpose(0, 1).reshape(-1, self.k * num_frames).numpy()
+        # print(tmp2[0])
+        # print(tmp2[1])
+        # print('hello')
+        # row, col = grouped_points
+        # offset = (seq_decode - 1)*num_points
+        # row = row.reshape(-1, self.k)
+        # row = row - offset.unsqueeze(-1)
+        # row = row.view(-1).int()
+        # row, col = torch.cat([row, torch.arange(x_ref[0].size(0)).to(row.device)], dim=0)\
+        #     , torch.cat([col,
+        #                    torch.arange(x_decode[0].size(0), x_decode[0].size(0)+x_ref[0].size(0)).to(col.device)])
+        # edge_index = torch.stack([row, col], dim=0)
+        # x = torch.cat([x_decode[0], x_ref], dim=0)
 
-        batch_decode = (batch[(sequence_number == num_frames-1)],
-                    batch[(sequence_number == num_frames)])
+        # return self.propagate(edge_index=edge_index, x=(x, torch.empty(x_ref.size(0), 1)))
 
-        grouped_points = knn(x_decode[0], x_decode[1], self.k, batch_decode[0], batch_decode[1])
-        row, col = grouped_points
-        row, col = torch.cat([row, torch.arange(x_decode[0].size(0)).to(row.device)], dim=0)\
-            , torch.cat([col,
-                           torch.arange(x_decode[0].size(0), 2*x_decode[0].size(0)).to(col.device)])
-        edge_index = torch.stack([row, col], dim=0)
-        x = torch.cat([x_decode[0], x_decode[1]], dim=0)
-
-        return self.propagate(edge_index=edge_index, x=(x, torch.empty(x_decode[0].size(0), 1)))
-
-
-        if isinstance(x, Tensor):
-            x: PairTensor = (x, x)
-        assert x[0].dim() == 2, \
-            'Static graphs not supported in `TemporalSelfAttentionDynamicEdgeConv`.'
-
-        b: PairOptTensor = (None, None)
-        if isinstance(batch, Tensor):
-            # b = (batch, batch)
-            b_list = [(batch * num_frames + sequence_number - 1).long(),
-                      (batch * num_frames + sequence_number - 2).long()]
-            b_list[1] = torch.where((sequence_number == 1) | (sequence_number == num_frames), b_list[0], b_list[1])
-            b = (b_list[0], b_list[1])
-        elif isinstance(batch, tuple):
-            assert batch is not None
-            b = (batch[0], batch[1])
-
-        edge_index = knn(x[0], x[1], self.k, b[0], b[1])
+    def aggregate(self, q: Tensor,
+                  x_j: Tensor) -> Tensor:
+        q = self.q.unsqueeze(1)
+        x_j = x_j.reshape(10, -1, self.k, x_j.shape[-1]).transpose(0, 1).reshape(-1, self.k*10, x_j.shape[-1])
+        q = self.multihead_attn(q, x_j, x_j)
+        return q.squeeze()
+    def update(self, inputs: Tensor) -> Tensor:
+        return self.nn(inputs)
+    def __repr__(self):
+        return '{}(nn={}, k={})'.format(self.__class__.__name__, self.nn,
+                                        self.k)
 
 
 
