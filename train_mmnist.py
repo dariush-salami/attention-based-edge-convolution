@@ -22,7 +22,7 @@ sys.path.append(osp.join(ROOT_DIR, 'models'))
 parser = argparse.ArgumentParser(description='Configurations')
 parser.add_argument('--model', type=str, default='modified_edgecnn_regression',
                     help='Model to run on the data (stgcnn, dgcnn, tgcnn, modified_edgecnn) [default: modified_edgecnn]')
-parser.add_argument('--log_dir', default='temporal_regression_mmnist_decoder_step', help='Log dir [default: stgcnn]')
+parser.add_argument('--log_dir', default='final_temporal_regression_mmnist_decoder', help='Log dir [default: stgcnn]')
 parser.add_argument('--k', default=5, help='Number of nearest points [default: 5]')
 parser.add_argument('--t', default=2, help='Number of future frames to look at [default: 5]')
 parser.add_argument('--alpha', type=float, default=1.0, help='Weigh on CD loss [default: 1.0]')
@@ -195,8 +195,8 @@ current_ch_loss = 0
 last_improvement = 0
 
 for epoch in range(1, MAX_EPOCH):
-#     current_loss, current_ch_loss, current_emd_loss = test(test_loader)
-#     print(current_loss, current_ch_loss, current_emd_loss)
+    current_loss, current_ch_loss, current_emd_loss = test(test_loader)
+    print(current_loss, current_ch_loss, current_emd_loss)
     loss,_,_ = train()
     scheduler.step()
     current_loss, current_ch_loss, current_emd_loss = test(test_loader)

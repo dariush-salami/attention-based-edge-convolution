@@ -295,7 +295,7 @@ class TemporalDecoder(MessagePassing):
              q.reshape(-1, seq_length, num_points, q.shape[-1])
              .repeat_interleave(seq_length, 1).view(-1, q.shape[-1]))
         self.q = q
-        batch_knn = torch.arange(x[0].shape[0]//num_points).repeat_interleave(num_points)
+        batch_knn = torch.arange(x[0].shape[0]//num_points).repeat_interleave(num_points).to(q.device)
         grouped_points = knn(x[0], x[1], self.k, batch_knn, batch_knn)
         return self.propagate(x=x, edge_index=grouped_points)
         # tmp = grouped_points[0].reshape(seq_length, -1,  self.k)

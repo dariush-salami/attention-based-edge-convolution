@@ -145,7 +145,7 @@ class Net(torch.nn.Module):
 
     def decode(self, data, encoding):
         x1, x2, encoded = encoding
-        sequence_number, pos, target, batch = data.x[:, 0].float(), data.x[:, 1:], data.y[:, 1:].float(), data.batch
+        sequence_number, pos, target, batch = data.x[:, 0].float(), data.x[:, 1:].float(), data.y[:, 1:].float(), data.batch
         starting_frame = pos[sequence_number == 10]
         target_without_end = target[sequence_number != 10]
         target = torch.cat([starting_frame.reshape([-1, 1, 128, 3]), target_without_end.reshape([-1, 9, 128, 3])],
