@@ -8,15 +8,15 @@ from os.path import join
 import pathlib
 import sys
 
-MAXIMUM_CONCURRENT_JOBS = 1
+MAXIMUM_CONCURRENT_JOBS = 3
 PROCESS_LIST = []
 GPU_CHECK_INTERVAL = 5 * 60
-GPU_AVAILABLE_THRESHOLD = 14000
+GPU_AVAILABLE_THRESHOLD = 10000
 LOG_PATH_TEMPLATE = join(
     pathlib.Path(__file__).parent.absolute(),
     'logs/hyperparameter_tuning/gcn_layers_{gcn_layers}_st_factor_{st_factor}_k_{k}'
 )
-TRAIN_OR_EVAL = 'TRAIN'
+TRAIN_OR_EVAL = 'EVALUATE'
 TRAIN_TEMPLATE = 'python train.py --t=1000 --gpu_id={gpu_id} --log_dir={log_dir} --k={k} ' \
                  '--spatio_temporal_factor={spatio_temporal_factor} ' \
                  '--graph_convolution_layers={graph_convolution_layers}'
