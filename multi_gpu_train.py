@@ -28,7 +28,7 @@ parser.add_argument('--spatio_temporal_factor', default=0.01, type=float, help='
 parser.add_argument('--graph_convolution_layers', default=2, type=int, help='Number of graph convolution layers [default: 21]')
 parser.add_argument('--max_epoch', type=int, default=1000, help='Epoch to run [default: 251]')
 parser.add_argument('--normalize_data', default=False, help='Normalize the point cloud [default: False]')
-parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
+parser.add_argument('--gpu_ids', default=0, help='GPU IDs separated by comma [default: 0]')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
 parser.add_argument('--dataset', default='data/primary_32_f_32_p_without_outlier_removal', help='Dataset path. [default: data/primary_32_f_32_p_without_outlier_removal]')
 parser.add_argument('--num_class', type=int, default=21, help='Number of classes. [default: 21]')
@@ -44,7 +44,7 @@ K = FLAGS.k
 T = FLAGS.t
 SPATIO_TEMPORAL_FACTOR = FLAGS.spatio_temporal_factor
 GRAPH_CONVOLUTION_LAYERS = FLAGS.graph_convolution_layers
-GPU_ID = FLAGS.gpu_id
+GPU_IDS = list(map(int, FLAGS.gpu_ids.split(',')))
 MAX_EPOCH = FLAGS.max_epoch
 NORMALIZE_DATA = FLAGS.normalize_data
 MODEL = importlib.import_module(FLAGS.model)
@@ -70,7 +70,7 @@ def log_string(out_str):
     sys.stdout.flush()
 
 
-device = torch.device('cuda:{}'.format(GPU_ID) if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:{}'.format(GPU_IDS[0]) if torch.cuda.is_available() else 'cpu')
 path = osp.join(osp.dirname(osp.realpath(__file__)), DATASET)
 augmentation_transformer = AugmentationTransformer(False, BATCH_SIZE)
 
@@ -89,9 +89,8 @@ test_loader = DataLoader(
 
 model = MODEL.Net(NUM_CLASSES, graph_convolution_layers=GRAPH_CONVOLUTION_LAYERS, k=K, T=T, spatio_temporal_factor=SPATIO_TEMPORAL_FACTOR)
 if torch.cuda.device_count() > 1:
-    print(torch.cuda.device_count())
-    model = DataParallel(model, device_ids=[1, 2, 3])
-# model.to(device)
+    model = DataParallel(model, device_ids=GPU_IDS)
+model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 
