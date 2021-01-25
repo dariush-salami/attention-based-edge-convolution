@@ -70,7 +70,7 @@ def log_string(out_str):
     sys.stdout.flush()
 
 
-device = torch.device('cuda:{}'.format(GPU_IDS[0]) if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:{}'.format(0) if torch.cuda.is_available() else 'cpu')
 path = osp.join(osp.dirname(osp.realpath(__file__)), DATASET)
 augmentation_transformer = AugmentationTransformer(False, BATCH_SIZE)
 
