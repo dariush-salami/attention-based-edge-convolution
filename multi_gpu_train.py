@@ -100,6 +100,7 @@ def train():
 
     total_loss = 0
     for data_list in train_loader:
+        print(data_list.shape)
         data_list = augmentation_transformer(data_list)
         optimizer.zero_grad()
         output = model(data_list)
