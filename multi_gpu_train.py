@@ -99,14 +99,14 @@ def train():
     model.train()
 
     total_loss = 0
-    for data in train_loader:
-        data = data.to(device)
-        data = augmentation_transformer(data)
+    for data_list in train_loader:
+        data_list = augmentation_transformer(data_list)
         optimizer.zero_grad()
-        out = model(data)
-        loss = F.nll_loss(out, data.y.squeeze())
+        output = model(data_list)
+        y = torch.cat([data.y for data in data_list]).to(output.device)
+        loss = F.nll_loss(output, y)
         loss.backward()
-        total_loss += loss.item() * data.num_graphs
+        total_loss += loss.item() * data_list.num_graphs
         optimizer.step()
     scheduler.step()
     return total_loss / len(train_dataset)
