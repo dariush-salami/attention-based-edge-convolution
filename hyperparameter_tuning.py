@@ -8,7 +8,7 @@ from os.path import join
 import pathlib
 import sys
 
-MAXIMUM_CONCURRENT_JOBS = 3
+MAXIMUM_CONCURRENT_JOBS = 1
 PROCESS_LIST = []
 GPU_CHECK_INTERVAL = 5 * 60
 GPU_AVAILABLE_THRESHOLD = 10000
@@ -25,7 +25,68 @@ HYPER_PARAMETERS = {
     'GCN_LAYERS': [1, 2, 3]
 }
 # GCN_LAYER, ST_FACTOR, K
-DONE_ARRAY = None
+DONE_ARRAY = np.array([
+    [1, 0, 2, True],
+    [1, 0, 4, True],
+    [1, 0, 8, True],
+    [1, 0, 16, True],
+    [1, 0, 32, True],
+    [1, 0.01, 2, True],
+    [1, 0.01, 4, True],
+    [1, 0.01, 8, True],
+    [1, 0.01, 16, True],
+    [1, 0.01, 32, True],
+    [1, 0.05, 2, True],
+    [1, 0.05, 4, True],
+    [1, 0.05, 8, True],
+    [1, 0.05, 16, True],
+    [1, 0.05, 32, True],
+    [1, 0.1, 2, True],
+    [1, 0.1, 4, True],
+    [1, 0.1, 8, True],
+    [1, 0.1, 16, True],
+    [1, 0.1, 32, True],
+    [1, 10, 2, True],
+    [1, 10, 4, True],
+    [1, 10, 8, True],
+    [1, 10, 16, True],
+    [1, 10, 32, True],
+    [2, 0, 2, True],
+    [2, 0, 4, True],
+    [2, 0, 8, True],
+    [2, 0, 16, True],
+    [2, 0.01, 2, True],
+    [2, 0.01, 4, True],
+    [2, 0.01, 8, True],
+    [2, 0.01, 16, True],
+    [2, 0.05, 2, True],
+    [2, 0.05, 4, True],
+    [2, 0.05, 8, True],
+    [2, 0.05, 16, True],
+    [2, 0.1, 2, True],
+    [2, 0.1, 4, True],
+    [2, 0.1, 8, True],
+    [2, 0.1, 16, True],
+    [2, 10, 2, True],
+    [2, 10, 4, True],
+    [2, 10, 8, True],
+    [2, 10, 16, True],
+    [3, 0, 2, True],
+    [3, 0, 4, True],
+    [3, 0, 8, True],
+    [3, 0.01, 2, True],
+    [3, 0.01, 4, True],
+    [3, 0.01, 8, True],
+    [3, 0.05, 2, True],
+    [3, 0.05, 4, True],
+    [3, 0.05, 8, True],
+    [3, 0.1, 2, True],
+    [3, 0.1, 4, True],
+    [3, 0.1, 8, True],
+    [3, 10, 2, True],
+    [3, 10, 4, True],
+    [3, 10, 8, True],
+])
 AVAILABLE_GPU_QUERY = 'nvidia-smi --query-gpu=index,memory.free --format=csv'
 
 LOG_FOUT = open('hyper_parameter_tuning_log.txt', 'w')
@@ -52,9 +113,9 @@ def start_next_job_on_gpu(gpu_id):
                     else:
                         DONE_ARRAY = np.vstack((DONE_ARRAY, np.array([GCN_LAYER, ST_FACTOR, K, True])))
                     log_string('Starting job for gcn_layers={}, st_factor={}, k={} on GPU={}'.format(GCN_LAYER,
-                                                                                                ST_FACTOR,
-                                                                                                K,
-                                                                                                gpu_id))
+                                                                                                     ST_FACTOR,
+                                                                                                     K,
+                                                                                                     gpu_id))
                     log_dir = LOG_PATH_TEMPLATE.format(
                         gcn_layers=GCN_LAYER,
                         st_factor=ST_FACTOR,
@@ -86,7 +147,7 @@ def check_available_gpu(scheduler):
             finished_processes_indices.append(p_index)
     for index in sorted(finished_processes_indices, reverse=True):
         del PROCESS_LIST[index]
-    if current_running_jobs > MAXIMUM_CONCURRENT_JOBS:
+    if current_running_jobs >= MAXIMUM_CONCURRENT_JOBS:
         log_string('There are {}/{} running jobs. We should wait for one to finish first!'.format(
             MAXIMUM_CONCURRENT_JOBS, MAXIMUM_CONCURRENT_JOBS
         ))
