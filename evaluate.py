@@ -18,7 +18,7 @@ sys.path.append(BASE_DIR)
 sys.path.append(osp.join(ROOT_DIR, 'models'))
 
 parser = argparse.ArgumentParser(description='Configurations')
-parser.add_argument('--model', type=str, default='dgcnn',
+parser.add_argument('--model', type=str, default='modified_edgecnn',
                     help='Model to run on the data (stgcnn, dgcnn, tgcnn, modified_edgecnn) [default: modified_edgecnn]')
 parser.add_argument('--log_dir', default='logs/dynamic_edge_cnn_k_20_max_32_f_32_p_without_outlier_removal',
                     help='Log dir [default: log]')
