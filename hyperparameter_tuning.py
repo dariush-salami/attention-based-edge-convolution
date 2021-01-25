@@ -11,7 +11,7 @@ import sys
 MAXIMUM_CONCURRENT_JOBS = 1
 PROCESS_LIST = []
 GPU_CHECK_INTERVAL = 5 * 60
-GPU_AVAILABLE_THRESHOLD = 10000
+GPU_AVAILABLE_THRESHOLD = 14000
 LOG_PATH_TEMPLATE = join(
     pathlib.Path(__file__).parent.absolute(),
     'logs/hyperparameter_tuning/gcn_layers_{gcn_layers}_st_factor_{st_factor}_k_{k}'
