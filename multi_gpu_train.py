@@ -89,6 +89,7 @@ test_loader = DataLoader(
 
 model = MODEL.Net(NUM_CLASSES, graph_convolution_layers=GRAPH_CONVOLUTION_LAYERS, k=K, T=T, spatio_temporal_factor=SPATIO_TEMPORAL_FACTOR)
 if torch.cuda.device_count() > 1:
+    print(torch.cuda.device_count())
     model = DataParallel(model)
 model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
