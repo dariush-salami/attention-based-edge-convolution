@@ -22,20 +22,33 @@ parser.add_argument('--model', type=str, default='dgcnn',
                     help='Model to run on the data (stgcnn, dgcnn, tgcnn, modified_edgecnn) [default: modified_edgecnn]')
 parser.add_argument('--log_dir', default='logs/dynamic_edge_cnn_k_20_max_32_f_32_p_without_outlier_removal',
                     help='Log dir [default: log]')
+parser.add_argument('--k', default=4, type=int, help='Number of nearest points [default: 4]')
+parser.add_argument('--t', default=1000, type=int, help='Number of future frames to look at [default: 1]')
+parser.add_argument('--spatio_temporal_factor', default=0.01, type=float, help='Spatio-temporal factor [default: 0.01]')
+parser.add_argument('--graph_convolution_layers', default=2, type=int, help='Number of graph convolution layers [default: 21]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
 parser.add_argument('--dataset', default='data/primary_32_f_32_p_without_outlier_removal', help='Dataset path. [default: data/pantomime]')
+parser.add_argument('--eval_score_path', type=str, default=None, help='Eval score path. [default: dataset path]')
 parser.add_argument('--num_class', type=int, default=21, help='Number of classes. [default: 21]')
 
 FLAGS = parser.parse_args()
 DATASET = FLAGS.dataset
 LOG_DIR = FLAGS.log_dir
+K = FLAGS.k
+T = FLAGS.t
+SPATIO_TEMPORAL_FACTOR = FLAGS.spatio_temporal_factor
+GRAPH_CONVOLUTION_LAYERS = FLAGS.graph_convolution_layers
 MODEL = importlib.import_module(FLAGS.model)
 GPU_ID = FLAGS.gpu_id
 BATCH_SIZE = FLAGS.batch_size
+EVAL_SCORE_PATH = FLAGS.eval_score_path
 NUM_CLASSES = FLAGS.num_class
 LOG_FOUT = open(os.path.join(LOG_DIR, 'log_evaluate.txt'), 'w')
 LOG_FOUT.write(str(FLAGS) + '\n')
+
+if EVAL_SCORE_PATH is None:
+    EVAL_SCORE_PATH = DATASET
 
 model_path = osp.join(LOG_DIR, 'model.pth')
 
@@ -54,7 +67,7 @@ test_loader = DataLoader(
     test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=6)
 
 log_string('Selected model: {}'.format(MODEL))
-model = MODEL.Net(NUM_CLASSES).to(device)
+model = MODEL.Net(NUM_CLASSES, graph_convolution_layers=GRAPH_CONVOLUTION_LAYERS, k=K, T=T, spatio_temporal_factor=SPATIO_TEMPORAL_FACTOR).to(device)
 checkpoint = torch.load(Path(model_path))
 model.load_state_dict(checkpoint)
 log_string('The checkpoint was load successfully: {}'.format(model_path))
@@ -81,7 +94,7 @@ for data in test_loader:
     total_y_pred.extend(pred.cpu().detach().numpy().tolist())
     total_y_true.extend(data.y.squeeze().cpu().detach().numpy().tolist())
 
-with open('{}/scores_{}_{}.pkl'.format(DATASET, FLAGS.model, calendar.timegm(time.gmtime())), 'wb') as handle:
+with open('{}/scores_{}_{}.pkl'.format(EVAL_SCORE_PATH, FLAGS.model, calendar.timegm(time.gmtime())), 'wb') as handle:
     pickle.dump({
         'total_y_true': total_y_true,
         'total_y_pred': total_y_pred,

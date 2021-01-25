@@ -16,77 +16,23 @@ LOG_PATH_TEMPLATE = join(
     pathlib.Path(__file__).parent.absolute(),
     'logs/hyperparameter_tuning/gcn_layers_{gcn_layers}_st_factor_{st_factor}_k_{k}'
 )
-COMMAND_TEMPLATE = 'python train.py --t=1000 --gpu_id={gpu_id} --log_dir={log_dir} --k={k} ' \
-                   '--spatio_temporal_factor={spatio_temporal_factor} ' \
-                   '--graph_convolution_layers={graph_convolution_layers} '
+TRAIN_OR_EVAL = 'TRAIN'
+TRAIN_TEMPLATE = 'python train.py --t=1000 --gpu_id={gpu_id} --log_dir={log_dir} --k={k} ' \
+                 '--spatio_temporal_factor={spatio_temporal_factor} ' \
+                 '--graph_convolution_layers={graph_convolution_layers}'
+
+EVALUATE_TEMPLATE = 'python evaluate.py --t=1000 --gpu_id={gpu_id} --log_dir={log_dir} --k={k} ' \
+                    '--spatio_temporal_factor={spatio_temporal_factor} ' \
+                    '--graph_convolution_layers={graph_convolution_layers} ' \
+                    '--eval_score_path={eval_score_path}'
+
 HYPER_PARAMETERS = {
     'KS': [2, 4, 8, 16, 32],
     'ST_FACTORS': [0, 0.01, 0.05, 0.1, 10],
     'GCN_LAYERS': [1, 2, 3]
 }
 # GCN_LAYER, ST_FACTOR, K
-DONE_ARRAY = np.array([
-    [1, 0, 2, True],
-    [1, 0, 4, True],
-    [1, 0, 8, True],
-    [1, 0, 16, True],
-    [1, 0, 32, True],
-    [1, 0.01, 2, True],
-    [1, 0.01, 4, True],
-    [1, 0.01, 8, True],
-    [1, 0.01, 16, True],
-    [1, 0.01, 32, True],
-    [1, 0.05, 2, True],
-    [1, 0.05, 4, True],
-    [1, 0.05, 8, True],
-    [1, 0.05, 16, True],
-    [1, 0.05, 32, True],
-    [1, 0.1, 2, True],
-    [1, 0.1, 4, True],
-    [1, 0.1, 8, True],
-    [1, 0.1, 16, True],
-    [1, 0.1, 32, True],
-    [1, 10, 2, True],
-    [1, 10, 4, True],
-    [1, 10, 8, True],
-    [1, 10, 16, True],
-    [1, 10, 32, True],
-    [2, 0, 2, True],
-    [2, 0, 4, True],
-    [2, 0, 8, True],
-    [2, 0, 16, True],
-    [2, 0.01, 2, True],
-    [2, 0.01, 4, True],
-    [2, 0.01, 8, True],
-    [2, 0.01, 16, True],
-    [2, 0.05, 2, True],
-    [2, 0.05, 4, True],
-    [2, 0.05, 8, True],
-    [2, 0.05, 16, True],
-    [2, 0.1, 2, True],
-    [2, 0.1, 4, True],
-    [2, 0.1, 8, True],
-    [2, 0.1, 16, True],
-    [2, 10, 2, True],
-    [2, 10, 4, True],
-    [2, 10, 8, True],
-    [2, 10, 16, True],
-    [3, 0, 2, True],
-    [3, 0, 4, True],
-    [3, 0, 8, True],
-    [3, 0.01, 2, True],
-    [3, 0.01, 4, True],
-    [3, 0.01, 8, True],
-    [3, 0.05, 2, True],
-    [3, 0.05, 4, True],
-    [3, 0.05, 8, True],
-    [3, 0.1, 2, True],
-    [3, 0.1, 4, True],
-    [3, 0.1, 8, True],
-    [3, 10, 2, True],
-    [3, 10, 4, True],
-    [3, 10, 8, True],
-])
+DONE_ARRAY = None
 AVAILABLE_GPU_QUERY = 'nvidia-smi --query-gpu=index,memory.free --format=csv'
 
 LOG_FOUT = open('hyper_parameter_tuning_log.txt', 'w')
@@ -100,7 +46,7 @@ def log_string(out_str):
 
 
 def start_next_job_on_gpu(gpu_id):
-    global DONE_ARRAY, HYPER_PARAMETERS, COMMAND_TEMPLATE, LOG_PATH_TEMPLATE
+    global DONE_ARRAY, HYPER_PARAMETERS, TRAIN_TEMPLATE, EVALUATE_TEMPLATE, LOG_PATH_TEMPLATE, TRAIN_OR_EVAL
     for GCN_LAYER in HYPER_PARAMETERS['GCN_LAYERS']:
         for ST_FACTOR in HYPER_PARAMETERS['ST_FACTORS']:
             for K in HYPER_PARAMETERS['KS']:
@@ -121,13 +67,23 @@ def start_next_job_on_gpu(gpu_id):
                         st_factor=ST_FACTOR,
                         k=K
                     )
-                    command = COMMAND_TEMPLATE.format(
-                        gpu_id=gpu_id,
-                        log_dir=log_dir,
-                        graph_convolution_layers=GCN_LAYER,
-                        spatio_temporal_factor=ST_FACTOR,
-                        k=K
-                    )
+                    if TRAIN_OR_EVAL == 'TRAIN':
+                        command = TRAIN_TEMPLATE.format(
+                            gpu_id=gpu_id,
+                            log_dir=log_dir,
+                            graph_convolution_layers=GCN_LAYER,
+                            spatio_temporal_factor=ST_FACTOR,
+                            k=K
+                        )
+                    else:
+                        command = EVALUATE_TEMPLATE.format(
+                            gpu_id=gpu_id,
+                            log_dir=log_dir,
+                            graph_convolution_layers=GCN_LAYER,
+                            spatio_temporal_factor=ST_FACTOR,
+                            k=K,
+                            eval_score_path=log_dir
+                        )
                     PROCESS_LIST.append(subprocess.Popen(command, shell=True))
                     log_string(command)
                     return True
