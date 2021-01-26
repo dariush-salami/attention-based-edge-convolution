@@ -4,7 +4,8 @@ from torch.nn import Sequential as Seq, Linear as Lin, ReLU, BatchNorm1d as BN, 
 from torch_geometric.nn import global_max_pool, BatchNorm
 from custom_graph_convolution import CGCNConv
 from temporal_edgecnn.temporal_edgecnn import TemporalSelfAttentionDynamicEdgeConv, TemporalDynamicEdgeConv, \
-    AutomatedGraphDynamicEdgeConv, GeneralizedTemporalSelfAttentionDynamicEdgeConv
+    AutomatedGraphDynamicEdgeConv, GeneralizedTemporalSelfAttentionDynamicEdgeConv, \
+    GeneralizedTemporalSelfAttentionDynamicEdgeConvWithoutMask
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
@@ -113,26 +114,26 @@ class Net(torch.nn.Module):
         # self.conv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
         #                                                   128, 8, k, aggr)
 
-        self.conv1 = GeneralizedTemporalSelfAttentionDynamicEdgeConv(nn=MLP([2 * 3, 64, 64, 64]),
-                                                                     attention_in_features=64,
-                                                                     head_num=8,
-                                                                     k=k,
-                                                                     spatio_temporal_factor=spatio_temporal_factor,
-                                                                     T=T)
-        self.conv2 = GeneralizedTemporalSelfAttentionDynamicEdgeConv(nn=MLP([2 * 64, 128]),
-                                                                     attention_in_features=128,
-                                                                     head_num=8,
-                                                                     k=k,
-                                                                     spatio_temporal_factor=spatio_temporal_factor,
-                                                                     aggr=aggr,
-                                                                     T=T)
-        self.conv3 = GeneralizedTemporalSelfAttentionDynamicEdgeConv(nn=MLP([2 * 128, 256]),
-                                                                     attention_in_features=256,
-                                                                     head_num=8,
-                                                                     k=k,
-                                                                     spatio_temporal_factor=spatio_temporal_factor,
-                                                                     aggr=aggr,
-                                                                     T=T)
+        self.conv1 = GeneralizedTemporalSelfAttentionDynamicEdgeConvWithoutMask(nn=MLP([2 * 3, 64, 64, 64]),
+                                                                                attention_in_features=64,
+                                                                                head_num=8,
+                                                                                k=k,
+                                                                                spatio_temporal_factor=spatio_temporal_factor,
+                                                                                T=T)
+        self.conv2 = GeneralizedTemporalSelfAttentionDynamicEdgeConvWithoutMask(nn=MLP([2 * 64, 128]),
+                                                                                attention_in_features=128,
+                                                                                head_num=8,
+                                                                                k=k,
+                                                                                spatio_temporal_factor=spatio_temporal_factor,
+                                                                                aggr=aggr,
+                                                                                T=T)
+        self.conv3 = GeneralizedTemporalSelfAttentionDynamicEdgeConvWithoutMask(nn=MLP([2 * 128, 256]),
+                                                                                attention_in_features=256,
+                                                                                head_num=8,
+                                                                                k=k,
+                                                                                spatio_temporal_factor=spatio_temporal_factor,
+                                                                                aggr=aggr,
+                                                                                T=T)
         assert (1 <= graph_convolution_layers <= 3,
                 'The number of graph convolution layers should between and including 1 and 3.')
         if graph_convolution_layers == 3:

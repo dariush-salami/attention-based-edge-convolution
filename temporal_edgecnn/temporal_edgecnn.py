@@ -361,6 +361,79 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
                                         self.k)
 
 
+class GeneralizedTemporalSelfAttentionDynamicEdgeConvWithoutMask(MessagePassing):
+    def __init__(self, nn: Callable, T: int, attention_in_features: int, head_num: int, k: int,
+                 aggr: str = 'max',
+                 num_workers: int = 1, spatio_temporal_factor: float = 0, **kwargs):
+        super(GeneralizedTemporalSelfAttentionDynamicEdgeConvWithoutMask,
+              self).__init__(aggr=aggr, flow='target_to_source', **kwargs)
+
+        if knn is None:
+            raise ImportError('`GeneralizedTemporalSelfAttentionDynamicEdgeConvWithoutMask` requires `torch-cluster`.')
+
+        self.nn = nn
+        self.multihead_attn = MultiHeadAttention(attention_in_features, head_num)
+        self.k = k
+        self.num_workers = num_workers
+        self.spatio_temporal_factor = spatio_temporal_factor
+        self.T = T
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        reset(self.multihead_attn)
+        reset(self.nn)
+
+    def forward(
+            self, x: Union[Tensor, PairTensor],
+            sequence_number: Union[Tensor, PairTensor],
+            batch: Union[OptTensor, Optional[PairTensor]] = None, ) -> Tensor:
+        knn_input = torch.cat((x, sequence_number.reshape(-1, 1)), 1)
+        knn_input -= knn_input.min(0, keepdim=True)[0]
+        knn_input /= knn_input.max(0, keepdim=True)[0]
+        knn_input[:, -1] *= self.spatio_temporal_factor * math.sqrt(x.shape[-1])
+        # source_data, source_batch, target_data, target_batch, index_mapper = make_proper_data(knn_input,
+        #                                                                                       sequence_number,
+        #                                                                                       batch,
+        #                                                                                       T=self.T)
+        if isinstance(x, Tensor):
+            x: PairTensor = (x, x)
+        assert x[0].dim() == 2, \
+            'Static graphs not supported in `GeneralizedTemporalSelfAttentionDynamicEdgeConvWithoutMask`.'
+        b: PairOptTensor = (None, None)
+        if isinstance(batch, Tensor):
+            b = (batch, batch)
+        elif isinstance(batch, tuple):
+            assert batch is not None
+            b = (batch[0], batch[1])
+
+        edge_index = knn(knn_input, knn_input, self.k, b[0], b[1],
+                         num_workers=self.num_workers)
+        # edge_index[1] = index_mapper[edge_index[1]]
+        return self.propagate(edge_index, x=x, size=None, batch=batch)
+
+    def message(self, x_i: Tensor, x_j: Tensor) -> Tensor:
+        return self.nn(torch.cat([x_i, x_j - x_i], dim=-1))
+
+    def aggregate(self, inputs: Tensor, index: Tensor,
+                  batch: Tensor,
+                  ptr: Optional[Tensor] = None,
+                  dim_size: Optional[int] = None) -> Tensor:
+        original_shape = inputs.shape
+        # We assume K is fixed and the index tensor is sorted!
+        attention_input_shape = list([int(original_shape[0] / self.k)]) + list(original_shape)
+        attention_input_shape[1] = self.k
+        self_attention_input = inputs.reshape(attention_input_shape)
+        attn_output = self.multihead_attn(self_attention_input, self_attention_input, self_attention_input)
+        attn_output = attn_output.reshape(original_shape)
+        # Apply attention mechanism
+        return scatter(attn_output, index, dim=self.node_dim, dim_size=dim_size,
+                       reduce=self.aggr)
+
+    def __repr__(self):
+        return '{}(nn={}, k={})'.format(self.__class__.__name__, self.nn,
+                                        self.k)
+
+
 class AutomatedGraphDynamicEdgeConv(MessagePassing):
     def __init__(self, nn_before_graph_creation: Union[Callable, None], nn: Callable, graph_creation_in_features: int,
                  in_features: int, head_num: int,
