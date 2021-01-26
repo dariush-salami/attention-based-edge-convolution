@@ -134,8 +134,7 @@ class Net(torch.nn.Module):
                                                                                 spatio_temporal_factor=spatio_temporal_factor,
                                                                                 aggr=aggr,
                                                                                 T=T)
-        assert (1 <= graph_convolution_layers <= 3,
-                'The number of graph convolution layers should between and including 1 and 3.')
+        assert 1 <= graph_convolution_layers <= 3
         if graph_convolution_layers == 3:
             self.lin1 = MLP([256 + 128 + 64, 1024])
         elif graph_convolution_layers == 2:
