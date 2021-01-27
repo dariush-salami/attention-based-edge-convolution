@@ -114,26 +114,26 @@ class Net(torch.nn.Module):
         # self.conv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
         #                                                   128, 8, k, aggr)
 
-        self.conv1 = GeneralizedTemporalSelfAttentionDynamicEdgeConvWithoutMask(nn=MLP([2 * 3, 64, 64, 64]),
-                                                                                attention_in_features=64,
-                                                                                head_num=8,
-                                                                                k=k,
-                                                                                spatio_temporal_factor=spatio_temporal_factor,
-                                                                                T=T)
-        self.conv2 = GeneralizedTemporalSelfAttentionDynamicEdgeConvWithoutMask(nn=MLP([2 * 64, 128]),
-                                                                                attention_in_features=128,
-                                                                                head_num=8,
-                                                                                k=k,
-                                                                                spatio_temporal_factor=spatio_temporal_factor,
-                                                                                aggr=aggr,
-                                                                                T=T)
-        self.conv3 = GeneralizedTemporalSelfAttentionDynamicEdgeConvWithoutMask(nn=MLP([2 * 128, 256]),
-                                                                                attention_in_features=256,
-                                                                                head_num=8,
-                                                                                k=k,
-                                                                                spatio_temporal_factor=spatio_temporal_factor,
-                                                                                aggr=aggr,
-                                                                                T=T)
+        self.conv1 = GeneralizedTemporalSelfAttentionDynamicEdgeConv(nn=MLP([2 * 3, 64, 64, 64]),
+                                                                     attention_in_features=64,
+                                                                     head_num=8,
+                                                                     k=k,
+                                                                     spatio_temporal_factor=spatio_temporal_factor,
+                                                                     T=T)
+        self.conv2 = GeneralizedTemporalSelfAttentionDynamicEdgeConv(nn=MLP([2 * 64, 128]),
+                                                                     attention_in_features=128,
+                                                                     head_num=8,
+                                                                     k=k,
+                                                                     spatio_temporal_factor=spatio_temporal_factor,
+                                                                     aggr=aggr,
+                                                                     T=T)
+        self.conv3 = GeneralizedTemporalSelfAttentionDynamicEdgeConv(nn=MLP([2 * 128, 256]),
+                                                                     attention_in_features=256,
+                                                                     head_num=8,
+                                                                     k=k,
+                                                                     spatio_temporal_factor=spatio_temporal_factor,
+                                                                     aggr=aggr,
+                                                                     T=T)
         assert 1 <= graph_convolution_layers <= 3
         if graph_convolution_layers == 3:
             self.lin1 = MLP([256 + 128 + 64, 1024])

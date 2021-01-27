@@ -324,9 +324,10 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
         knn_input -= knn_input.min(0, keepdim=True)[0]
         knn_input /= knn_input.max(0, keepdim=True)[0]
         knn_input[:, -1] *= self.spatio_temporal_factor * math.sqrt(x.shape[-1])
-        source_data, source_batch, target_data, target_batch, index_mapper = make_proper_data(knn_input,
-                                                                                              sequence_number,
-                                                                                              batch,
+        source_data, source_batch, target_data, target_batch, index_mapper = make_proper_data(data=knn_input,
+                                                                                              sequence_number=sequence_number,
+                                                                                              batch=batch,
+                                                                                              self_loop=True,
                                                                                               T=self.T)
         if isinstance(x, Tensor):
             x: PairTensor = (x, x)
