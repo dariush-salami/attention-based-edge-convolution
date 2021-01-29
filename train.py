@@ -21,7 +21,7 @@ parser = argparse.ArgumentParser(description='Configurations')
 parser.add_argument('--model', type=str, default='lightest_temporal_dec',
                     help='Model to run on the data (stgcnn, dgcnn, tgcnn, modified_edgecnn) [default: modified_edgecnn]')
 parser.add_argument('--log_dir', default='stgcnn', help='Log dir [default: stgcnn]')
-parser.add_argument('--k', default=4, type=int, help='Number of nearest points [default: 4]')
+parser.add_argument('--k', default=2, type=int, help='Number of nearest points [default: 4]')
 parser.add_argument('--t', default=1000, type=int, help='Number of future frames to look at [default: 1]')
 parser.add_argument('--spatio_temporal_factor', default=0.01, type=float, help='Spatio-temporal factor [default: 0.01]')
 parser.add_argument('--graph_convolution_layers', default=2, type=int, help='Number of graph convolution layers [default: 21]')
