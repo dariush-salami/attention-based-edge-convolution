@@ -18,7 +18,7 @@ sys.path.append(BASE_DIR)
 sys.path.append(osp.join(ROOT_DIR, 'models'))
 
 parser = argparse.ArgumentParser(description='Configurations')
-parser.add_argument('--model', type=str, default='modified_edgecnn',
+parser.add_argument('--model', type=str, default='lightest_temporal_dec',
                     help='Model to run on the data (stgcnn, dgcnn, tgcnn, modified_edgecnn) [default: modified_edgecnn]')
 parser.add_argument('--log_dir', default='stgcnn', help='Log dir [default: stgcnn]')
 parser.add_argument('--k', default=4, type=int, help='Number of nearest points [default: 4]')
