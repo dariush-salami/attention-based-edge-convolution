@@ -14,7 +14,7 @@ def MLP(channels, batch_norm=True):
 
 
 class Net(torch.nn.Module):
-    def __init__(self, out_channels, k=20, aggr='max'):
+    def __init__(self, out_channels, graph_convolution_layers=2, T=1, k=4, spatio_temporal_factor=0.01, aggr='max'):
         super().__init__()
         self.stn = STN3d()
         self.conv1 = DynamicEdgeConv(MLP([2 * 3, 64, 64, 64]), k, aggr)
