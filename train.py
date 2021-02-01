@@ -9,6 +9,12 @@ import torch.nn.functional as F
 import argparse
 import sys
 from utils.augmentation_transformer import AugmentationTransformer
+from models.STN3d import STN3d, count_STN3d
+from temporal_edgecnn.temporal_edgecnn import TemporalSelfAttentionDynamicEdgeConv, count_Multi_head_self_attention,\
+    count_TemporalSelfAttentionDynamicEdgeConv
+from torch_multi_head_attention import MultiHeadAttention
+
+from thop import profile, clever_format
 
 BASE_DIR = osp.dirname(osp.abspath(__file__))
 ROOT_DIR = BASE_DIR
@@ -23,7 +29,7 @@ parser.add_argument('--k', default=5, help='Number of nearest points [default: 5
 parser.add_argument('--t', default=2, help='Number of future frames to look at [default: 5]')
 parser.add_argument('--max_epoch', type=int, default=1000, help='Epoch to run [default: 251]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
-parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
+parser.add_argument('--batch_size', type=int, default=1, help='Batch size [default: 32]')
 parser.add_argument('--dataset', default='data/pantomime', help='Dataset path. [default: data/pantomime]')
 parser.add_argument('--num_class', type=int, default=21, help='Number of classes. [default: 21]')
 parser.add_argument('--early_stopping', default='True', help='Whether to use early stopping [default: True]')
@@ -67,9 +73,9 @@ augmentation_transformer = AugmentationTransformer(False, BATCH_SIZE)
 train_dataset = PantomimeDataset(path, True)
 test_dataset = PantomimeDataset(path, False)
 train_loader = DataLoader(
-    train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=6)
+    train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
 test_loader = DataLoader(
-    test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=6)
+    test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 
 model = MODEL.Net(NUM_CLASSES).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
@@ -84,6 +90,12 @@ def train():
         data = data.to(device)
         data = augmentation_transformer(data)
         optimizer.zero_grad()
+        macs, params = profile(model, custom_ops={STN3d: count_STN3d,
+                                                  MultiHeadAttention:count_Multi_head_self_attention,
+                                                  TemporalSelfAttentionDynamicEdgeConv:
+                                                      count_TemporalSelfAttentionDynamicEdgeConv}, inputs=(data,))
+        macs, params = clever_format([macs, params], "%.3f")
+        print(macs, params)
         out = model(data)
         loss = F.nll_loss(out, data.y.squeeze())
         loss.backward()
@@ -101,6 +113,8 @@ def test(loader):
             pred = model(data).max(dim=1)[1]
         correct += pred.eq(data.y.squeeze()).sum().item()
     return correct / len(loader.dataset)
+
+
 
 
 log_string('Selected model: {}'.format(MODEL))

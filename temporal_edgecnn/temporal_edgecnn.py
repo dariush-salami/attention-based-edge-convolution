@@ -257,7 +257,24 @@ class TemporalSelfAttentionDynamicEdgeConv(MessagePassing):
     def __repr__(self):
         return '{}(nn={}, k={})'.format(self.__class__.__name__, self.nn,
                                         self.k)
+def count_TemporalSelfAttentionDynamicEdgeConv(m, x, y):
+    return
+def count_Multi_head_self_attention(m, x, y):
+    q, k, v = x
+    q_dim = q.shape[-1] // m.head_num
+    attention_ops = int(q_dim* k.numel()) + 1 # normalization
+    query_ops = int(q.shape[1] * v.numel())
 
+    # Softmax ops
+    nfeatures = k.shape[1]
+    batch_size = q.shape[0]* m.head_num * q.shape[1]
+    total_exp = nfeatures
+    total_add = nfeatures - 1
+    total_div = nfeatures
+    softmax_ops = batch_size * (total_exp + total_add + total_div)
+
+
+    m.total_ops += torch.DoubleTensor([attention_ops + softmax_ops + query_ops])
 
 class AutomatedGraphDynamicEdgeConv(MessagePassing):
     def __init__(self, nn_before_graph_creation: Union[Callable, None], nn: Callable, graph_creation_in_features: int,
