@@ -30,6 +30,7 @@ class PantomimeDataset(InMemoryDataset):
         original_data = h5py.File(dataset)
         data = np.array(original_data['data'])
         label = np.array(original_data['label'])
+        print('frames: {}, points in each frame: {}'.format(data.shape[1], data.shape[2]))
 
         data_list = []
         for gesture_data, gesture_label in zip(*(data, label)):
