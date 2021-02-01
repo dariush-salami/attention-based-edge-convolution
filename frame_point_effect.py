@@ -63,22 +63,22 @@ def start_next_job_on_gpu(gpu_id):
                                                                       gpu_id))
             log_dir = LOG_PATH_TEMPLATE.format(
                 k=DATASET['k'],
-                frame=DATASETS['frame'],
-                points=DATASETS['points']
+                frame=DATASET['frame'],
+                points=DATASET['points']
             )
             if TRAIN_OR_EVAL == 'TRAIN':
                 command = TRAIN_TEMPLATE.format(
                     gpu_id=gpu_id,
                     log_dir=log_dir,
-                    dataset=DATASETS['path'],
-                    k=DATASETS['k']
+                    dataset=DATASET['path'],
+                    k=DATASET['k']
                 )
             else:
                 command = EVALUATE_TEMPLATE.format(
                     gpu_id=gpu_id,
                     log_dir=log_dir,
-                    k=DATASETS['k'],
-                    dataset=DATASETS['path'],
+                    k=DATASET['k'],
+                    dataset=DATASET['path'],
                     eval_score_path=log_dir
                 )
             PROCESS_LIST.append(subprocess.Popen(command, shell=True))
