@@ -3,7 +3,7 @@ import os.path as osp
 from os import makedirs
 import importlib
 import torch
-from ubpg_dataset import UBPGDataset
+from radhar_dataset import RadHarDataset
 from torch_geometric.data import DataLoader
 import torch.nn.functional as F
 import argparse
@@ -29,7 +29,7 @@ parser.add_argument('--max_epoch', type=int, default=1000, help='Epoch to run [d
 parser.add_argument('--normalize_data', default=False, help='Normalize the point cloud [default: False]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
-parser.add_argument('--dataset', default='data/ubpg', help='Dataset path. [default: data/primary_32_f_32_p_without_outlier_removal]')
+parser.add_argument('--dataset', default='data/radhar', help='Dataset path. [default: data/primary_32_f_32_p_without_outlier_removal]')
 parser.add_argument('--num_class', type=int, default=10, help='Number of classes. [default: 21]')
 parser.add_argument('--early_stopping', default='True', help='Whether to use early stopping [default: True]')
 parser.add_argument('--early_stopping_patience', type=int, default=100,
@@ -75,11 +75,11 @@ augmentation_transformer = AugmentationTransformer(False, BATCH_SIZE)
 
 if NORMALIZE_DATA:
     pre_transform = Transformers.NormalizeScale()
-    train_dataset = UBPGDataset(path, 'train', pre_transform=pre_transform)
-    test_dataset = UBPGDataset(path, 'validation', pre_transform=pre_transform)
+    train_dataset = RadHarDataset(path, 'train', pre_transform=pre_transform)
+    test_dataset = RadHarDataset(path, 'validation', pre_transform=pre_transform)
 else:
-    train_dataset = UBPGDataset(path, 'train')
-    test_dataset = UBPGDataset(path, 'validation')
+    train_dataset = RadHarDataset(path, 'train')
+    test_dataset = RadHarDataset(path, 'validation')
 
 train_loader = DataLoader(
     train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=6)

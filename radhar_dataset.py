@@ -4,9 +4,9 @@ import torch
 from torch_geometric.data import InMemoryDataset, Data
 
 
-class UBPGDataset(InMemoryDataset):
+class RadHarDataset(InMemoryDataset):
     def __init__(self, root, split='train', transform=None, pre_transform=None, pre_filter=None):
-        super(UBPGDataset, self).__init__(root, transform, pre_transform, pre_filter)
+        super(RadHarDataset, self).__init__(root, transform, pre_transform, pre_filter)
         if split == 'train':
             path = self.processed_paths[0]
         elif split == 'validation':
