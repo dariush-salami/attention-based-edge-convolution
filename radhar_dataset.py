@@ -29,6 +29,7 @@ class RadHarDataset(InMemoryDataset):
     def process(self):
         torch.save(self.process_set(self.raw_paths[0]), self.processed_paths[0])
         torch.save(self.process_set(self.raw_paths[1]), self.processed_paths[1])
+        torch.save(self.process_set(self.raw_paths[2]), self.processed_paths[2])
 
     def process_set(self, dataset):
         print(dataset)
