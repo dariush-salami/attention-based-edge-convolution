@@ -1,8 +1,11 @@
 import torch
 from hololens.model import Net
 import torch_sparse
+import torch_scatter
 from pathlib import Path
 
+print(torch_sparse.__version__)
+print(torch_scatter.__version__)
 model_path = '/home/researcher/PycharmProjects/RI4DPC/hololens/model.pth'
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')

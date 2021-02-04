@@ -327,6 +327,7 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
         source_data, source_batch, target_data, target_batch, index_mapper = make_proper_data(data=knn_input,
                                                                                               sequence_number=sequence_number,
                                                                                               batch=batch,
+                                                                                              self_loop=True,
                                                                                               T=self.T)
         if isinstance(x, Tensor):
             x: PairTensor = (x, x)
