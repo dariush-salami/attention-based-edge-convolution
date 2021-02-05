@@ -110,7 +110,7 @@ class MMNISTTransformer(object):
         x_data = []
         y_data = []
         for (digit_index, digit_image) in enumerate(batch_data):
-            print('Converting digit {}/{}'.format(digit_index + 1, len(batch_data)))
+            #print('Converting digit {}/{}'.format(digit_index + 1, len(batch_data)))
             fail = True
             fetch_random_item = False
             while fail:
@@ -135,8 +135,8 @@ class MMNISTTransformer(object):
                     if cloud.shape[0] < self.num_points:
                         fail = True
                         fetch_random_item = True
-                        print('Failed to convert digit {}/{}'.format(digit_index + 1, len(batch_data)))
-                        print('Will try with a random item in the batch!')
+                        #print('Failed to convert digit {}/{}'.format(digit_index + 1, len(batch_data)))
+                        #print('Will try with a random item in the batch!')
                         break
                     else:
                         fail = False
@@ -171,7 +171,7 @@ class MMNISTTransformer(object):
         x_data = torch.tensor(np.array(x_data).reshape(-1, 4)).to(data.x.device)
         y_data = torch.tensor(np.array(y_data).reshape(-1, 4)).to(data.x.device)
         batch = torch.tensor(
-            np.array(list(range(32))).reshape(-1, 1).repeat((self.seq_length // 2) * self.num_points)).to(data.x.device)
+            np.array(list(range(self.batch_size))).reshape(-1, 1).repeat((self.seq_length // 2) * self.num_points)).to(data.x.device)
         data.x = x_data
         data.y = y_data
         data.pos = x_data[:, 1:4]

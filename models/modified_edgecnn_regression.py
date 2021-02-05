@@ -4,7 +4,7 @@ from torch.nn import Sequential as Seq, Linear as Lin, ReLU, BatchNorm1d as BN, 
 from torch_geometric.nn import global_max_pool, BatchNorm
 from custom_graph_convolution import CGCNConv
 from temporal_edgecnn.temporal_edgecnn import TemporalSelfAttentionDynamicEdgeConv, TemporalDynamicEdgeConv, \
-    AutomatedGraphDynamicEdgeConv
+    AutomatedGraphDynamicEdgeConv, SelfTemporalSelfAttentionDynamicEdgeConv, TemporalDecoder
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
@@ -96,29 +96,42 @@ class STNkd(nn.Module):
 
 
 class Net(torch.nn.Module):
-    def __init__(self, out_channels, k=8, aggr='max'):
+    def __init__(self, out_channels, k=4, aggr='max'):
         super().__init__()
         self.stn = STN3d()
+        # self.stn2 = STN3d()
         # self.fstn = STNkd(k=64)
-        self.conv1 = AutomatedGraphDynamicEdgeConv(MLP([3, 16]),
-                                                   MLP([2 * 16, 64, 64, 64]),
-                                                   16, 64, 4, k, aggr)
-        self.conv2 = AutomatedGraphDynamicEdgeConv(None,
-                                                   MLP([2 * 64, 128]),
-                                                   64, 128, 8, k, aggr)
+#         self.conv1 = AutomatedGraphDynamicEdgeConv(MLP([3, 16]),
+#                                                    MLP([2 * 16, 64, 64, 64]),
+#                                                    16, 64, 4, k, aggr)
+#         self.conv2 = AutomatedGraphDynamicEdgeConv(None,
+#                                                    MLP([2 * 64, 128]),
+#                                                    64, 128, 8, k, aggr)
 
-        # self.conv1 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
+        self.conv1 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
+                                                          64, 4, k, aggr)
+        self.conv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
+                                                          128, 8, k, aggr)
+
+        self.deconv1 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
+                                                          64, 4, k, aggr)
+        self.deconv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
+                                                          128, 8, k, aggr)
+        self.deconv3 = TemporalDecoder(MLP([128, 128]), 128, 8, k, aggr)
+
+        # self.conv1 = SelfTemporalSelfAttentionDynamicEdgeConv(MLP([2 * 3, 64, 64, 64]),
         #                                                   64, 4, k, aggr)
-        # self.conv2 = TemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
+        # self.conv2 = SelfTemporalSelfAttentionDynamicEdgeConv(MLP([2 * 64, 128]),
         #                                                   128, 8, k, aggr)
-        self.lin1 = MLP([128 + 64, 1024])
+        self.lin1 = MLP([128 + 64, 128])
+        self.lin2 = MLP([128 + 64, 128])
 
         self.mlp = Seq(
-            MLP([1024, 512]), Dropout(0.5), MLP([512, 256]), Dropout(0.5),
-            Lin(256, out_channels))
+            MLP([128, 256]), Dropout(0.5), MLP([256, 64]), Dropout(0.5),
+            Lin(64, out_channels))
 
-    def forward(self, data):
-        sequence_numbers, pos, batch = data.x[:, 0].float(), data.pos.float(), data.batch
+    def encode(self, data):
+        sequence_numbers, pos, batch = data.x[:, 0].float(), data.x[:, 1:].float(), data.batch
         pos = pos.reshape(len(torch.unique(data.batch)), -1, 3).transpose(2, 1)
         trans = self.stn(pos)
         pos = pos.transpose(2, 1)
@@ -126,7 +139,35 @@ class Net(torch.nn.Module):
         pos = pos.reshape(-1, 3)
         x1 = self.conv1(pos, sequence_numbers, batch)
         x2 = self.conv2(x1, sequence_numbers, batch)
-        out = self.lin1(torch.cat([x1, x2], dim=1))
-        out = global_max_pool(out, batch)
-        out = self.mlp(out)
-        return F.log_softmax(out, dim=1)
+        # out = torch.cat([x1, x2], dim=1)
+        return x1, x2, self.lin1(torch.cat([x1, x2], dim=-1))
+        # return global_max_pool(out, batch)
+
+    def decode(self, data, encoding):
+        x1, x2, encoded = encoding
+        sequence_number, pos, target, batch = data.x[:, 0].float(), data.x[:, 1:].float(), data.y[:, 1:].float(), data.batch
+        starting_frame = pos[sequence_number == 10]
+        target_without_end = target[sequence_number != 10]
+        target = torch.cat([starting_frame.reshape([-1, 1, 128, 3]), target_without_end.reshape([-1, 9, 128, 3])],
+                           dim=1).view(-1, 3)
+        # trans = self.stn(target)
+        # target = target.transpose(2, 1)
+        # target = torch.bmm(target, trans)
+        # target = target.reshape(-1, 3)
+        dec1 = self.deconv1(target, sequence_number, batch)
+        dec2 = self.deconv2(dec1, sequence_number, batch)
+        out = self.lin2(torch.cat([dec1, dec2], dim=-1))
+
+        out = self.deconv3(out, encoded, sequence_number, batch)
+        return self.mlp(out)
+
+    def frame_prod(self, decoding):
+        return self.mlp(decoding)
+
+    def forward(self, data):
+
+        encoding = self.encode(data)
+
+        decoding = self.decode(encoding)
+
+        return self.frame_prod(decoding)
