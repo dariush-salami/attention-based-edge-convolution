@@ -11,12 +11,7 @@ import sys
 from utils.augmentation_transformer import AugmentationTransformer
 import torch_geometric.transforms as Transformers
 
-from models.STN3d import STN3d, count_STN3d
-from temporal_edgecnn.temporal_edgecnn import TemporalSelfAttentionDynamicEdgeConv, count_Multi_head_self_attention,\
-    count_TemporalSelfAttentionDynamicEdgeConv
-from torch_multi_head_attention import MultiHeadAttention
 
-from thop import profile, clever_format
 
 BASE_DIR = osp.dirname(osp.abspath(__file__))
 ROOT_DIR = BASE_DIR
@@ -34,7 +29,7 @@ parser.add_argument('--graph_convolution_layers', default=2, type=int, help='Num
 parser.add_argument('--max_epoch', type=int, default=1000, help='Epoch to run [default: 251]')
 parser.add_argument('--normalize_data', default=False, help='Normalize the point cloud [default: False]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
-parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
+parser.add_argument('--batch_size', type=int, default=1, help='Batch size [default: 32]')
 parser.add_argument('--dataset', default='data/primary_32_f_32_p_without_outlier_removal', help='Dataset path. [default: data/primary_32_f_32_p_without_outlier_removal]')
 parser.add_argument('--num_class', type=int, default=21, help='Number of classes. [default: 21]')
 parser.add_argument('--early_stopping', default='True', help='Whether to use early stopping [default: True]')
@@ -105,12 +100,6 @@ def train():
         data = data.to(device)
         data = augmentation_transformer(data)
         optimizer.zero_grad()
-        macs, params = profile(model, custom_ops={STN3d: count_STN3d,
-                                                  MultiHeadAttention:count_Multi_head_self_attention,
-                                                  TemporalSelfAttentionDynamicEdgeConv:
-                                                      count_TemporalSelfAttentionDynamicEdgeConv}, inputs=(data,))
-        macs, params = clever_format([macs, params], "%.3f")
-        print(macs, params)
         out = model(data)
         loss = F.nll_loss(out, data.y.squeeze())
         loss.backward()

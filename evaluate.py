@@ -11,6 +11,12 @@ from pathlib import Path
 import sys
 import calendar
 import time
+from models.STN3d import STN3d, count_STN3d
+from temporal_edgecnn.temporal_edgecnn import GeneralizedTemporalSelfAttentionDynamicEdgeConv, count_Multi_head_self_attention,\
+    count_TemporalSelfAttentionDynamicEdgeConv
+from torch_multi_head_attention import MultiHeadAttention
+
+from thop import profile, clever_format
 
 BASE_DIR = osp.dirname(osp.abspath(__file__))
 ROOT_DIR = BASE_DIR
@@ -77,11 +83,21 @@ params = sum([np.prod(p.size()) for p in model_parameters])
 log_string('The number of trainable parameters of the model is {}'.format(params))
 
 model.eval()
+count_flops = True
 correct = 0
 total_y_pred = []
 total_y_true = []
 total_y_score = None
 for data in test_loader:
+    if count_flops:
+        data = data[0]
+        macs, params = profile(model, custom_ops={STN3d: count_STN3d,
+                                                  MultiHeadAttention: count_Multi_head_self_attention,
+                                                  GeneralizedTemporalSelfAttentionDynamicEdgeConv:
+                                                      count_TemporalSelfAttentionDynamicEdgeConv}, inputs=(data,))
+        macs, params = clever_format([macs, params], "%.3f")
+        print(macs, params)
+        count_flops = False
     data = data.to(device)
     with torch.no_grad():
         batch_pred = model(data)
