@@ -11,6 +11,12 @@ import sys
 from utils.augmentation_transformer import AugmentationTransformer
 import torch_geometric.transforms as Transformers
 
+from models.STN3d import STN3d, count_STN3d
+from temporal_edgecnn.temporal_edgecnn import TemporalSelfAttentionDynamicEdgeConv, count_Multi_head_self_attention,\
+    count_TemporalSelfAttentionDynamicEdgeConv
+from torch_multi_head_attention import MultiHeadAttention
+
+from thop import profile, clever_format
 
 BASE_DIR = osp.dirname(osp.abspath(__file__))
 ROOT_DIR = BASE_DIR
@@ -82,9 +88,9 @@ else:
     test_dataset = PantomimeDataset(path, False)
 
 train_loader = DataLoader(
-    train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=6)
+    train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
 test_loader = DataLoader(
-    test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=6)
+    test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 
 model = MODEL.Net(NUM_CLASSES, graph_convolution_layers=GRAPH_CONVOLUTION_LAYERS, k=K, T=T, spatio_temporal_factor=SPATIO_TEMPORAL_FACTOR).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
@@ -99,6 +105,12 @@ def train():
         data = data.to(device)
         data = augmentation_transformer(data)
         optimizer.zero_grad()
+        macs, params = profile(model, custom_ops={STN3d: count_STN3d,
+                                                  MultiHeadAttention:count_Multi_head_self_attention,
+                                                  TemporalSelfAttentionDynamicEdgeConv:
+                                                      count_TemporalSelfAttentionDynamicEdgeConv}, inputs=(data,))
+        macs, params = clever_format([macs, params], "%.3f")
+        print(macs, params)
         out = model(data)
         loss = F.nll_loss(out, data.y.squeeze())
         loss.backward()

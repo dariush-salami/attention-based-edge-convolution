@@ -3,3 +3,8 @@
 /data/
 /logs/
 /analysis/.ipynb_checkpoints/
+/hololens/example-app/build/
+/hololens/example-app/libtorch/
+/hololens/example-app/pytorch_scatter/
+/hololens/example-app/pytorch_sparse/
+/emd/.ipynb_checkpoints/

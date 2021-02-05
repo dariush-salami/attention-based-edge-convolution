@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
-
+from models.STN3d import STN3d
 
 def MLP(channels, batch_norm=True):
     return Seq(*[
