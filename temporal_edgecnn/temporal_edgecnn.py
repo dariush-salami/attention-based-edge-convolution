@@ -266,12 +266,34 @@ class TemporalSelfAttentionDynamicEdgeConv(MessagePassing):
     def __repr__(self):
         return '{}(nn={}, k={})'.format(self.__class__.__name__, self.nn,
                                         self.k)
-def count_TemporalSelfAttentionDynamicEdgeConv(m, x, y):
-    return
+def count_GeneralizedTemporalSelfAttentionDynamicEdgeConv(m, x, y):
+    x_input, sequence_number, batch = x
+    frame_number = len(torch.unique(sequence_number))
+    batch_size = len(torch.unique(batch))
+    point_number = len(x_input) // (batch_size * frame_number)
+    dim = x_input.shape[-1] + 1
+    # KNN
+    size_source = batch_size * point_number * (1 + ((frame_number * (frame_number-1))//2))
+    size_target = batch_size * frame_number * point_number
+    ops = (2*dim) * size_source * size_target
+    m.total_ops += torch.DoubleTensor([ops])
+
+# def count_DynamicEdgeConv(m, x, y):
+#     x_input, batch = x
+#     frame_number = len(torch.unique(sequence_number))
+#     batch_size = len(torch.unique(batch))
+#     point_number = len(x_input) // (batch_size * frame_number)
+#     dim = x_input.shape[-1] + 1
+#     # KNN
+#     size_source = batch_size * point_number * (1 + ((frame_number * (frame_number-1))//2))
+#     size_target = batch_size * frame_number * point_number
+#     ops = (2*dim) * size_source * size_target
+#     m.total_ops += torch.DoubleTensor([ops])
+
 def count_Multi_head_self_attention(m, x, y):
     q, k, v = x
     q_dim = q.shape[-1] // m.head_num
-    attention_ops = int(q_dim* k.numel()) + 1 # normalization
+    attention_ops = int((q_dim+1) * k.numel())  # + 1 for normalization
     query_ops = int(q.shape[1] * v.numel())
 
     # Softmax ops
@@ -281,8 +303,6 @@ def count_Multi_head_self_attention(m, x, y):
     total_add = nfeatures - 1
     total_div = nfeatures
     softmax_ops = batch_size * (total_exp + total_add + total_div)
-
-
     m.total_ops += torch.DoubleTensor([attention_ops + softmax_ops + query_ops])
 
 def make_proper_data(data, sequence_number, batch, self_loop=False, T=1):
@@ -302,6 +322,7 @@ def make_proper_data(data, sequence_number, batch, self_loop=False, T=1):
     else:
         mask = torch.tril(torch.ones((frame_number, frame_number), device=data.device), diagonal=-1)
         mask[0][0] = 1
+    tmp = torch.tril(torch.ones((frame_number, frame_number), device=data.device), diagonal=-T - 1)
     mask -= torch.tril(torch.ones((frame_number, frame_number), device=data.device), diagonal=-T - 1)
     mask = mask.reshape(-1)
     target = target[:, mask == 1]
@@ -350,7 +371,6 @@ class GeneralizedTemporalSelfAttentionDynamicEdgeConv(MessagePassing):
             x: PairTensor = (x, x)
         assert x[0].dim() == 2, \
             'Static graphs not supported in `GeneralizedTemporalSelfAttentionDynamicEdgeConv`.'
-
         edge_index = knn(target_data, source_data, self.k, target_batch, source_batch,
                          num_workers=self.num_workers)
         edge_index[1] = index_mapper[edge_index[1]]

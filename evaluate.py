@@ -12,11 +12,13 @@ import sys
 import calendar
 import time
 from models.STN3d import STN3d, count_STN3d
+from torch_geometric.nn import DynamicEdgeConv
+from models.modified_edgecnn import Net
 from temporal_edgecnn.temporal_edgecnn import GeneralizedTemporalSelfAttentionDynamicEdgeConv, count_Multi_head_self_attention,\
-    count_TemporalSelfAttentionDynamicEdgeConv
+    count_GeneralizedTemporalSelfAttentionDynamicEdgeConv, count_DynamicEdgeConv
 from torch_multi_head_attention import MultiHeadAttention
-
-from thop import profile, clever_format
+from utils.profile_flops import profile
+from thop import clever_format
 
 BASE_DIR = osp.dirname(osp.abspath(__file__))
 ROOT_DIR = BASE_DIR
@@ -26,15 +28,15 @@ sys.path.append(osp.join(ROOT_DIR, 'models'))
 parser = argparse.ArgumentParser(description='Configurations')
 parser.add_argument('--model', type=str, default='modified_edgecnn',
                     help='Model to run on the data (stgcnn, dgcnn, tgcnn, modified_edgecnn) [default: modified_edgecnn]')
-parser.add_argument('--log_dir', default='logs/dynamic_edge_cnn_k_20_max_32_f_32_p_without_outlier_removal',
+parser.add_argument('--log_dir', default='logs/flops_dgcnn',
                     help='Log dir [default: log]')
-parser.add_argument('--k', default=4, type=int, help='Number of nearest points [default: 4]')
+parser.add_argument('--k', default=32, type=int, help='Number of nearest points [default: 4]')
 parser.add_argument('--t', default=1000, type=int, help='Number of future frames to look at [default: 1]')
 parser.add_argument('--spatio_temporal_factor', default=0.01, type=float, help='Spatio-temporal factor [default: 0.01]')
-parser.add_argument('--graph_convolution_layers', default=2, type=int, help='Number of graph convolution layers [default: 21]')
+parser.add_argument('--graph_convolution_layers', default=1, type=int, help='Number of graph convolution layers [default: 21]')
 parser.add_argument('--gpu_id', default=0, help='GPU ID [default: 0]')
-parser.add_argument('--batch_size', type=int, default=32, help='Batch size [default: 32]')
-parser.add_argument('--dataset', default='data/primary_32_f_32_p_without_outlier_removal', help='Dataset path. [default: data/pantomime]')
+parser.add_argument('--batch_size', type=int, default=1, help='Batch size [default: 32]')
+parser.add_argument('--dataset', default='data/pantomime', help='Dataset path. [default: data/pantomime]')
 parser.add_argument('--eval_score_path', type=str, default=None, help='Eval score path. [default: dataset path]')
 parser.add_argument('--num_class', type=int, default=21, help='Number of classes. [default: 21]')
 
@@ -70,7 +72,7 @@ device = torch.device('cuda:{}'.format(GPU_ID) if torch.cuda.is_available() else
 path = osp.join(osp.dirname(osp.realpath(__file__)), DATASET)
 test_dataset = PantomimeDataset(path, False)
 test_loader = DataLoader(
-    test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=6)
+    test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 
 log_string('Selected model: {}'.format(MODEL))
 model = MODEL.Net(NUM_CLASSES, graph_convolution_layers=GRAPH_CONVOLUTION_LAYERS, k=K, T=T, spatio_temporal_factor=SPATIO_TEMPORAL_FACTOR).to(device)
@@ -89,16 +91,18 @@ total_y_pred = []
 total_y_true = []
 total_y_score = None
 for data in test_loader:
+    data = data.to(device)
     if count_flops:
-        data = data[0]
         macs, params = profile(model, custom_ops={STN3d: count_STN3d,
                                                   MultiHeadAttention: count_Multi_head_self_attention,
                                                   GeneralizedTemporalSelfAttentionDynamicEdgeConv:
-                                                      count_TemporalSelfAttentionDynamicEdgeConv}, inputs=(data,))
+                                                  count_GeneralizedTemporalSelfAttentionDynamicEdgeConv,
+                                                  DynamicEdgeConv:
+                                                  count_DynamicEdgeConv}, inputs=(data,))
         macs, params = clever_format([macs, params], "%.3f")
         print(macs, params)
         count_flops = False
-    data = data.to(device)
+
     with torch.no_grad():
         batch_pred = model(data)
         if total_y_score is None:
